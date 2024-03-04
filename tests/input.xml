@@ -1,0 +1,56 @@
+<Table key="PRODUCTS">
+    <Title>Products</Title>
+    <Title-Local lang="fra">Produits</Title-Local>
+    <Description>Products' table</Description>
+    <Description-Local lang="fra">La table produits</Description-Local>
+    <Color>BLUE</Color>
+    <Position>1</Position>
+    <Schema>
+        <Levels>
+            <Level key="PRODUCT" index="1">
+                <Title>Product</Title>
+                <Title-Local lang="fra">Produit</Title-Local>
+            </Level>
+        </Levels>
+        <Partitions>
+            <Partition key="ACTIVE">
+                <Title>Active</Title>
+                <Position>1</Position>
+                <Title-Local lang="fra">Actifs</Title-Local>
+            </Partition>
+        </Partitions>
+        <Identifiers>
+            <Identifier key="EAN_13" index="1" level="PRODUCT">
+                <Title>EAN 13</Title>
+                <Metadata key="SYSTEM">ERP</Metadata>
+            </Identifier>
+        </Identifiers>
+        <Classifications>
+            <Classification key="TYPOLOGY">
+                <Title>Typology</Title>
+                <Categories>
+                    <Category key="HOME_APPLIANCE">
+                        <Title>Home appliance</Title>
+                    </Category>
+                    <Category key="PHONES" parent="HOME_APPLIANCE">
+                        <Title>Phones</Title>
+                    </Category>
+                </Categories>
+            </Classification>
+        </Classifications>
+        <Fields>
+            <Field key="TITLE_EN" type="SINGLE-LINE-TEXT" level="PRODUCT">
+                <Title>Title EN</Title>
+                <Title-Local lang="fra">Titre EN</Title-Local>
+                <Description>Product's title in english</Description>
+                <Description-Local lang="fra">Le titre du produit en anglais</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+            </Field>
+        </Fields>
+        <Matrix />
+        <Formulas />
+        <Conditional-Formattings />
+        <Sections />
+        <Screens />
+    </Schema>
+</Table>
