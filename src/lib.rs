@@ -143,7 +143,7 @@ mod tests {
     fn xml_writer() {
         match TableXmlParser::read("./tests/input.xml") {
             Ok(table) => {
-                match TableXmlWriter::write(&table, "output.xml") {
+                match TableXmlWriter::write(&table, "./tests/output.xml") {
                     Ok(_) => assert!(true),
                     Err(errors) => {
                         println!("{:#?}", errors);

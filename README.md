@@ -1,9 +1,3 @@
-## Concepts
+## Run tests
 
-#### Integers
-
-```
-<Position>1</Position>
-<Position>Hello</Position>
-<Position>-1</Position>
-```
+`cargo test`
