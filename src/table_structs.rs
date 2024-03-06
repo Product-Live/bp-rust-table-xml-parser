@@ -789,7 +789,6 @@ pub enum Control {
         title: String,
         title_locals: Option<Vec<Local>>,
     },
-    // TODO: Add rule conditions
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionRule {
@@ -814,7 +813,7 @@ pub enum Condition {
     Equals {
         source: String,
         value: String,
-        use_suffix: Option<String>,
+        use_suffix: Option<UseSuffix>,
     },
     StartsWith {
         source: String,
@@ -848,6 +847,31 @@ pub enum Condition {
         source: String,
         values: Vec<String>,
     },
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum UseSuffix {
+    Value,
+    SuffixKey,
+    Suffix
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Formula {
+    pub attribute_type: AttributeType,
+    pub key: String,
+    pub rules: Vec<Rules>
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Rule {
+    pub priority: usize,
+    pub conditions: Vec<ConditionGroup>,
+    pub action: Action
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Action {
+    SetTextTemplate { trim_spaces: bool },
+    SetNumberTemplate { precision: bool, round: String },
+    SetSelectableOptions { values: Vec<String> },
+    SetOption { value: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -910,7 +934,7 @@ pub struct Column {
     pub fixed: Option<bool>,
 }
 
-// Generics
+// Utils
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Local {
     pub lang: String,

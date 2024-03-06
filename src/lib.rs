@@ -1,6 +1,7 @@
 mod table_structs;
 mod table_xml_parser;
 mod table_xml_writer;
+mod table_validation;
 mod utils;
 
 #[cfg(test)]

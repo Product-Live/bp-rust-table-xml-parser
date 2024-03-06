@@ -1,3 +1,6 @@
 {
-  "emmet.excludeLanguages": ["xsl", "xslt"]
+  "emmet.excludeLanguages": [
+    "xsl",
+    "xslt"
+  ]
 }
