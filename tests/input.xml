@@ -46,11 +46,49 @@
                 <Description-Local lang="fra">Le titre du produit en anglais</Description-Local>
                 <Metadata key="SYSTEM">ERP</Metadata>
             </Field>
+            <Field key="COLOR" type="SINGLE-SELECT" level="PRODUCT">
+                <Title>Color</Title>
+                <Title-Local lang="fra">Couleur</Title-Local>
+                <Description>Product's color</Description>
+                <Description-Local lang="fra">La couleur du produit</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+                <Options>
+                    <Option key="RED" color="RED">
+                        <Title>Red</Title>
+                        <Title-Local lang="fra">Rouge</Title-Local>
+                    </Option>
+                    <Option key="GREEN" color="GREEN">
+                        <Title>Green</Title>
+                        <Title-Local lang="fra">Vert</Title-Local>
+                    </Option>
+                </Options>
+            </Field>
+            <Field key="STORAGE_GB" type="NUMBER" level="PRODUCT">
+                <Title>Storage GB</Title>
+                <Title-Local lang="fra">Stockage GB</Title-Local>
+                <Description>Storage capacity</Description>
+                <Description-Local lang="fra">Capacité de stockage</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+                <Suffix>GB</Suffix>
+            </Field>
         </Fields>
-        <Matrix />
+        <Matrix>
+            <Common>
+                <Field key="TITLE_EN" />
+                <Field key="COLOR" />
+            </Common>
+            <Specific classification="TYPOLOGY" category="PHONES">
+                <Field key="STORAGE" />
+            </Specific>
+        </Matrix>
         <Formulas />
         <Conditional-Formattings />
-        <Sections />
+        <Sections>
+            <Section key="IDENTIFIERS">
+                <Title>Identifiers</Title>
+                <Title-Local lang="fra">Identifiants</Title-Local>
+            </Section>
+        </Sections>
         <Screens />
     </Schema>
 </Table>

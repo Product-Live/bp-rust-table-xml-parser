@@ -4,8 +4,8 @@ use quick_xml::{events::Event, Reader};
 
 use crate::{
     table_structs::{
-        Category, Classification, DataType, Field, Identifier, Level, Local, Metadata, Partition,
-        SelectOption, Suffix, Table,
+        Category, Classification, DataType, Field, Identifier, Level, Local, MatrixField,
+        MatrixSpecific, Metadata, Partition, Section, SelectOption, Suffix, Table,
     },
     utils::get_attributes,
 };
@@ -115,6 +115,8 @@ impl TableXmlParser {
                     b"Identifiers" => Self::process_identifiers(self, reader, buf)?,
                     b"Classifications" => Self::process_classifications(self, reader, buf)?,
                     b"Fields" => Self::process_fields(self, reader, buf)?,
+                    b"Matrix" => Self::process_matrix(self, reader, buf)?,
+                    b"Sections" => Self::process_sections(self, reader, buf)?,
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -853,6 +855,216 @@ impl TableXmlParser {
             new_suffixes.push(suffix);
             field.suffixes = Some(new_suffixes);
         }
+        Ok(())
+    }
+
+    fn process_matrix(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Common" => Self::process_matrix_common(self, reader, buf)?,
+                    b"Specific" => {
+                        let mut classification: String = "UNKNOWN".to_owned();
+                        let mut category: String = "UNKNOWN".to_owned();
+                        let attributes = get_attributes(ev.attributes())?;
+                        match attributes.get("classification") {
+                            Some(value) => classification = value.to_owned(),
+                            None => (),
+                        }
+                        match attributes.get("category") {
+                            Some(value) => category = value.to_owned(),
+                            None => (),
+                        }
+                        let mut specific = MatrixSpecific {
+                            classification: classification,
+                            category: category,
+                            fields: vec![],
+                        };
+                        Self::process_matrix_specific(&mut specific, reader, buf)?;
+                        self.table.schema.matrix.specifics.push(specific)
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Matrix" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_matrix_common(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Field" => {
+                        let mut key: String = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(value) => key = value.to_owned(),
+                            None => (),
+                        }
+                        self.table
+                            .schema
+                            .matrix
+                            .common
+                            .push(MatrixField { key: key })
+                    }
+                    _ => (),
+                },
+                Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Field" => {
+                        let mut key: String = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(value) => key = value.to_owned(),
+                            None => (),
+                        }
+                        self.table
+                            .schema
+                            .matrix
+                            .common
+                            .push(MatrixField { key: key })
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Common" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_matrix_specific(
+        specific: &mut MatrixSpecific,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Field" => {
+                        let mut key: String = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(value) => key = value.to_owned(),
+                            None => (),
+                        }
+                        specific.fields.push(MatrixField { key: key })
+                    }
+                    _ => (),
+                },
+                Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Field" => {
+                        let mut key: String = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(value) => key = value.to_owned(),
+                            None => (),
+                        }
+                        specific.fields.push(MatrixField { key: key })
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Specific" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+
+    fn process_sections(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Section" => {
+                        Self::process_section(self, get_attributes(ev.attributes())?, reader, buf)?
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Sections" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_section(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut section = Section::new();
+        match attributes.get("key") {
+            Some(key) => section.key = key.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => {
+                    match ev.name().as_ref() {
+                        b"Title" => section.title = Self::handle_text(reader, buf)?,
+                        b"Description" => {
+                            section.description = Self::handle_optional_text(reader, buf)?
+                        }
+                        b"Title-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => section.add_title_local(Self::handle_optional_local(
+                                    lang, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Description-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => section.add_description_local(
+                                    Self::handle_optional_local(lang, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Metadata" => {
+                            match get_attributes(ev.attributes())?.get("key") {
+                                Some(key) => section.add_metadata(Self::handle_optional_metadata(
+                                    key, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Section" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        self.table.schema.sections.push(section);
+
         Ok(())
     }
 

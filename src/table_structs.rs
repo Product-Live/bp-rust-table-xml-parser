@@ -852,19 +852,19 @@ pub enum Condition {
 pub enum UseSuffix {
     Value,
     SuffixKey,
-    Suffix
+    Suffix,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Formula {
     pub attribute_type: AttributeType,
     pub key: String,
-    pub rules: Vec<Rules>
+    pub rules: Vec<Rules>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rule {
     pub priority: usize,
     pub conditions: Vec<ConditionGroup>,
-    pub action: Action
+    pub action: Action,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Action {
@@ -881,6 +881,58 @@ pub struct Section {
     pub description: Option<String>,
     pub title_locals: Option<Vec<Local>>,
     pub description_locals: Option<Vec<Local>>,
+    pub metadata: Option<Vec<Metadata>>,
+}
+impl Section {
+    pub fn new() -> Self {
+        Section {
+            key: "UNKNOWN".to_owned(),
+            title: "UNKNOWN".to_owned(),
+            description: None,
+            title_locals: None,
+            description_locals: None,
+            metadata: None,
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.title_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.title_locals = Some(new_locals)
+                }
+                None => self.title_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_description_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.description_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.description_locals = Some(new_locals)
+                }
+                None => self.description_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_metadata(&mut self, metadata: Option<Metadata>) {
+        match metadata {
+            Some(metadata) => match self.metadata.as_ref() {
+                Some(metadatas) => {
+                    let mut new_mertadatas = metadatas.to_vec();
+                    new_mertadatas.push(metadata);
+                    self.metadata = Some(new_mertadatas)
+                }
+                None => self.metadata = Some(vec![metadata]),
+            },
+            None => (),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

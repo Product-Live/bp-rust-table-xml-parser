@@ -3,13 +3,29 @@ use std::{collections::HashSet, error::Error};
 use crate::table_structs::Table;
 
 pub enum LogError {
-    Partition { code: String, message: String, xpath: String, partition_key: String },
-    Classification { code: String, message: String, xpath: String, classification_key: String },
-    Category { code: String, message: String, xpath: String, classification_key: String, category_key: String }
+    Partition {
+        code: String,
+        message: String,
+        xpath: String,
+        partition_key: String,
+    },
+    Classification {
+        code: String,
+        message: String,
+        xpath: String,
+        classification_key: String,
+    },
+    Category {
+        code: String,
+        message: String,
+        xpath: String,
+        classification_key: String,
+        category_key: String,
+    },
 }
 
 pub struct TableValidation {
-    errors: Vec<LogError>
+    errors: Vec<LogError>,
 }
 
 impl TableValidation {
@@ -32,66 +48,80 @@ impl TableValidation {
             match control_min_length(partition.key.to_owned(), 0)? {
                 Some(value_length) => self.errors.push(LogError::Partition {
                     code: "MIN_LENGTH".to_owned(),
-                    message: format!("Partition attribute @key is not greater than {} characters (actual: {}).",  0, value_length),
+                    message: format!(
+                        "Partition attribute @key is not greater than {} characters (actual: {}).",
+                        0, value_length
+                    ),
                     xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                     partition_key: key.to_owned(),
                 }),
-                None => ()
+                None => (),
             }
             match control_max_length(partition.key.to_owned(), 255)? {
                 Some(value_length) => self.errors.push(LogError::Partition {
                     code: "MAX_LENGTH".to_owned(),
-                    message: format!("Partition attribute @key is not lower than {} characters (actual: {}).", 255, value_length),
+                    message: format!(
+                        "Partition attribute @key is not lower than {} characters (actual: {}).",
+                        255, value_length
+                    ),
                     xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                     partition_key: key.to_owned(),
                 }),
-                None => ()
+                None => (),
             }
             match control_min_length(partition.title.to_owned(), 0)? {
                 Some(value_length) => self.errors.push(LogError::Partition {
                     code: "MIN_LENGTH".to_owned(),
-                    message: format!("Partition element Title is not greater than {} characters (actual: {}).",  0, value_length),
+                    message: format!(
+                        "Partition element Title is not greater than {} characters (actual: {}).",
+                        0, value_length
+                    ),
                     xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
                     partition_key: key.to_owned(),
                 }),
-                None => ()
+                None => (),
             }
             match control_max_length(partition.title.to_owned(), 255)? {
                 Some(value_length) => self.errors.push(LogError::Partition {
                     code: "MAX_LENGTH".to_owned(),
-                    message: format!("Partition element Title is not lower than {} characters (actual: {}).", 255, value_length),
+                    message: format!(
+                        "Partition element Title is not lower than {} characters (actual: {}).",
+                        255, value_length
+                    ),
                     xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
                     partition_key: key.to_owned(),
                 }),
-                None => ()
+                None => (),
             }
         }
         match control_text_uniqueness(partition_keys)? {
-            Some(keys) => for key in keys.iter() {
-                self.errors.push(LogError::Partition {
-                    code: "DUPLICATE_KEY".to_owned(),
-                    message: "Partition' attribute @key is not unique.".to_owned(),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
-                    partition_key: key.to_owned(),
-                })
+            Some(keys) => {
+                for key in keys.iter() {
+                    self.errors.push(LogError::Partition {
+                        code: "DUPLICATE_KEY".to_owned(),
+                        message: "Partition' attribute @key is not unique.".to_owned(),
+                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
+                        partition_key: key.to_owned(),
+                    })
+                }
             }
-            None => ()
+            None => (),
         };
         match control_number_uniqueness(partition_indexes)? {
-            Some(keys) => for key in keys.iter() {
-                self.errors.push(LogError::Partition {
-                    code: "DUPLICATE_INDEX".to_owned(),
-                    message: "Partition' attribute @index is not unique.".to_owned(),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@index", key),
-                    partition_key: key.to_owned(),
-                })
+            Some(keys) => {
+                for key in keys.iter() {
+                    self.errors.push(LogError::Partition {
+                        code: "DUPLICATE_INDEX".to_owned(),
+                        message: "Partition' attribute @index is not unique.".to_owned(),
+                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@index", key),
+                        partition_key: key.to_owned(),
+                    })
+                }
             }
-            None => ()
+            None => (),
         };
         Ok(())
     }
-
-    
 }
 
 // Utils
@@ -99,10 +129,7 @@ fn control_text_uniqueness(elements: Vec<String>) -> Result<Option<Vec<String>>,
     let unique_elements: HashSet<String> = elements.to_vec().into_iter().collect();
     let mut duplicate_keys: Vec<String> = vec![];
     for key in unique_elements {
-        let count = elements
-            .iter()
-            .filter(| k| k.as_str() == key)
-            .count();
+        let count = elements.iter().filter(|k| k.as_str() == key).count();
         if count > 1 {
             duplicate_keys.push(key);
         }
@@ -113,16 +140,15 @@ fn control_text_uniqueness(elements: Vec<String>) -> Result<Option<Vec<String>>,
         Ok(None)
     }
 }
-fn control_number_uniqueness(elements: Vec<(String, usize)>) -> Result<Option<Vec<String>>, Box<dyn Error>> {
+fn control_number_uniqueness(
+    elements: Vec<(String, usize)>,
+) -> Result<Option<Vec<String>>, Box<dyn Error>> {
     let unique_indexes: HashSet<usize> = elements.iter().map(|element| element.1).collect();
     let mut duplicate_index_keys: Vec<String> = vec![];
     for (idx, index) in unique_indexes.iter().enumerate() {
-        let count = elements
-            .iter()
-            .filter(| k | k.1 == *index)
-            .count();
+        let count = elements.iter().filter(|k| k.1 == *index).count();
         if count > 1 {
-           duplicate_index_keys.push(elements[idx].0.to_owned());
+            duplicate_index_keys.push(elements[idx].0.to_owned());
         }
     }
     if duplicate_index_keys.len() > 0 {
