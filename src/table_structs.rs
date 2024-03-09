@@ -944,7 +944,66 @@ pub struct Screen {
     pub description: Option<String>,
     pub title_locals: Option<Vec<Local>>,
     pub description_locals: Option<Vec<Local>>,
+    pub metadata: Option<Vec<Metadata>>,
     pub grid: ScreenGrid,
+}
+impl Screen {
+    pub fn new() -> Self {
+        Screen {
+            key: "UNKNOWN".to_owned(),
+            level: "UNKNOWN".to_owned(),
+            title: "UNKNOWN".to_owned(),
+            position: 0,
+            description: None,
+            title_locals: None,
+            description_locals: None,
+            metadata: None,
+            grid: ScreenGrid {
+                line_height: "MEDIUM".to_owned(),
+                common: vec![],
+                specifics: vec![],
+            },
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.title_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.title_locals = Some(new_locals)
+                }
+                None => self.title_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_description_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.description_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.description_locals = Some(new_locals)
+                }
+                None => self.description_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_metadata(&mut self, metadata: Option<Metadata>) {
+        match metadata {
+            Some(metadata) => match self.metadata.as_ref() {
+                Some(metadatas) => {
+                    let mut new_mertadatas = metadatas.to_vec();
+                    new_mertadatas.push(metadata);
+                    self.metadata = Some(new_mertadatas)
+                }
+                None => self.metadata = Some(vec![metadata]),
+            },
+            None => (),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ScreenGrid {
@@ -958,11 +1017,20 @@ pub struct CommonSection {
     pub position: usize,
     pub columns: Vec<CommonColumn>,
 }
+impl CommonSection {
+    pub fn new() -> Self {
+        CommonSection {
+            key: "UNKNOWN".to_owned(),
+            position: 0,
+            columns: vec![],
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CommonColumn {
     ColumnIdentifier(Column),
     ColumnClassification(Column),
-    ConditionalFormatting(Column),
+    ColumnConditionalFormatting(Column),
     ColumnField(Column),
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

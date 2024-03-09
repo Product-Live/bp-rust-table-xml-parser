@@ -4,8 +4,9 @@ use quick_xml::{events::Event, Reader};
 
 use crate::{
     table_structs::{
-        Category, Classification, DataType, Field, Identifier, Level, Local, MatrixField,
-        MatrixSpecific, Metadata, Partition, Section, SelectOption, Suffix, Table,
+        Category, Classification, Column, CommonColumn, CommonSection, DataType, Field, Identifier,
+        Level, Local, MatrixField, MatrixSpecific, Metadata, Partition, Screen, Section,
+        SelectOption, Suffix, Table,
     },
     utils::get_attributes,
 };
@@ -117,6 +118,7 @@ impl TableXmlParser {
                     b"Fields" => Self::process_fields(self, reader, buf)?,
                     b"Matrix" => Self::process_matrix(self, reader, buf)?,
                     b"Sections" => Self::process_sections(self, reader, buf)?,
+                    b"Screens" => Self::process_screens(self, reader, buf)?,
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1064,6 +1066,251 @@ impl TableXmlParser {
             buf.clear();
         }
         self.table.schema.sections.push(section);
+
+        Ok(())
+    }
+
+    fn process_screens(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Screen" => {
+                        Self::process_screen(self, get_attributes(ev.attributes())?, reader, buf)?
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Screens" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_screen(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut screen = Screen::new();
+        match attributes.get("key") {
+            Some(key) => screen.key = key.to_owned(),
+            None => (),
+        }
+        match attributes.get("level") {
+            Some(level) => screen.level = level.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => {
+                    match ev.name().as_ref() {
+                        b"Title" => screen.title = Self::handle_text(reader, buf)?,
+                        b"Position" => screen.position = Self::handle_number(reader, buf)?,
+                        b"Description" => {
+                            screen.description = Self::handle_optional_text(reader, buf)?
+                        }
+                        b"Title-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => screen.add_title_local(Self::handle_optional_local(
+                                    lang, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Description-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => screen.add_description_local(
+                                    Self::handle_optional_local(lang, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Metadata" => {
+                            match get_attributes(ev.attributes())?.get("key") {
+                                Some(key) => screen.add_metadata(Self::handle_optional_metadata(
+                                    key, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Grid" => Self::process_screen_grid(&mut screen, reader, buf)?,
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Screen" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        self.table.schema.screens.push(screen);
+
+        Ok(())
+    }
+    fn process_screen_grid(
+        // &mut self,
+        screen: &mut Screen,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Line-Height" => screen.grid.line_height = Self::handle_text(reader, buf)?,
+                    b"Common" => Self::process_grid_common(screen, reader, buf)?,
+                    // b"Specific" => Self::process_grid_specific(&mut screen, reader, buf)?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Grid" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+
+        Ok(())
+    }
+    fn process_grid_common(
+        // &mut self,
+        screen: &mut Screen,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Section" => Self::process_grid_common_section(
+                        get_attributes(ev.attributes())?,
+                        screen,
+                        reader,
+                        buf,
+                    )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Common" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+
+        Ok(())
+    }
+    fn process_grid_common_section(
+        // &mut self,
+        attributes: HashMap<String, String>,
+        screen: &mut Screen,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut section: CommonSection = CommonSection::new();
+        match attributes.get("key") {
+            Some(key) => section.key = key.to_owned(),
+            None => (),
+        }
+        match attributes.get("position") {
+            Some(position) => section.position = position.parse().unwrap_or(0),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Empty(ev) => {
+                    let attributes = get_attributes(ev.attributes())?;
+                    let key = attributes
+                        .get("key")
+                        .unwrap_or(&"UNKNWON".to_owned())
+                        .to_owned();
+                    let position = attributes
+                        .get("position")
+                        .unwrap_or(&"0".to_owned())
+                        .parse()
+                        .unwrap_or(0);
+                    let width = attributes.get("width").cloned();
+                    let read_only = match attributes.get("read-only") {
+                        Some(read_only) => match read_only.as_str() {
+                            "true" => Some(true),
+                            _ => None,
+                        },
+                        None => None,
+                    };
+                    let fixed = match attributes.get("fixed") {
+                        Some(fixed) => match fixed.as_str() {
+                            "true" => Some(true),
+                            _ => None,
+                        },
+                        None => None,
+                    };
+                    match ev.name().as_ref() {
+                        b"Column-Identifier" => {
+                            section.columns.push(CommonColumn::ColumnIdentifier(Column {
+                                key: key.to_owned(),
+                                position: position,
+                                width: width,
+                                read_only: read_only,
+                                fixed: fixed,
+                            }))
+                        }
+                        b"Column-Classification" => {
+                            section
+                                .columns
+                                .push(CommonColumn::ColumnClassification(Column {
+                                    key: key.to_owned(),
+                                    position: position,
+                                    width: width,
+                                    read_only: read_only,
+                                    fixed: fixed,
+                                }))
+                        }
+                        b"Column-Field" => {
+                            section.columns.push(CommonColumn::ColumnField(Column {
+                                key: key.to_owned(),
+                                position: position,
+                                width: width,
+                                read_only: read_only,
+                                fixed: fixed,
+                            }))
+                        }
+                        b"Column-Conditional-Formatting" => {
+                            section
+                                .columns
+                                .push(CommonColumn::ColumnConditionalFormatting(Column {
+                                    key: key.to_owned(),
+                                    position: position,
+                                    width: width,
+                                    read_only: read_only,
+                                    fixed: fixed,
+                                }))
+                        }
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Section" => break,
+                    b"Column-Identifier" => break,
+                    b"Column-Classification" => break,
+                    b"Column-Conditional-Formatting" => break,
+                    b"Column-Field" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        screen.grid.common.push(section);
 
         Ok(())
     }

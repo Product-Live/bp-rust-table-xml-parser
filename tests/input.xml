@@ -89,6 +89,31 @@
                 <Title-Local lang="fra">Identifiants</Title-Local>
             </Section>
         </Sections>
-        <Screens />
+        <Screens>
+            <Screen key="ALL_PROPERTIES" level="PRODUCT">
+                <Title>All properties</Title>
+                <Title-Local lang="fra">Tous les attributs</Title-Local>
+                <Position>1</Position>
+                <Grid>
+                    <Line-Height>SHORT</Line-Height>
+                    <Common>
+                        <Section key="IDENTIFIERS" position="1">
+                            <Column-Identifier key="EAN_13" position="1" read-only="true" fixed="true" />
+                            <Column-Field key="MAIN_IMAGE" position="2" />
+                            <Column-Classification key="TYPOLOGY" position="3" />
+                            <Column-Conditional-Formatting key="COMPLIANCE" position="4" />
+                            <Column-Field key="TITLE_EN" position="5" />
+                            <Column-Field key="DESCRIPTION_EN" position="6" />
+                            <Column-Field key="PRICE_EURO" position="7" width="SMALL" />
+                        </Section>
+                    </Common>
+                    <Specific classification="TYPOLOGY" category="HOME_APPLIANCE">
+                        <Section key="INFORMATIONS" position="1">
+                            <Column-Field key="INSTRUCTIONS" position="1" />
+                        </Section>
+                    </Specific>
+                </Grid>
+            </Screen>
+        </Screens>
     </Schema>
 </Table>
