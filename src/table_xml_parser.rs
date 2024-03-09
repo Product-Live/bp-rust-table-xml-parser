@@ -4,9 +4,10 @@ use quick_xml::{events::Event, Reader};
 
 use crate::{
     table_structs::{
-        Category, Classification, Column, CommonColumn, CommonSection, DataType, Field,
+        AttributeType, Category, Classification, Column, CommonAttributeRules, CommonColumn,
+        CommonSection, ConditionalFormatting, Control, DataType, DefaultStatus, Field,
         GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, Partition,
-        Screen, Section, SelectOption, SpecificSection, Suffix, Table,
+        Screen, Section, SelectOption, SpecificSection, Status, Suffix, Table,
     },
     utils::get_attributes,
 };
@@ -117,6 +118,9 @@ impl TableXmlParser {
                     b"Classifications" => Self::process_classifications(self, reader, buf)?,
                     b"Fields" => Self::process_fields(self, reader, buf)?,
                     b"Matrix" => Self::process_matrix(self, reader, buf)?,
+                    b"Conditional-Formattings" => {
+                        Self::process_conditional_formattings(self, reader, buf)?
+                    }
                     b"Sections" => Self::process_sections(self, reader, buf)?,
                     b"Screens" => Self::process_screens(self, reader, buf)?,
                     _ => (),
@@ -908,22 +912,7 @@ impl TableXmlParser {
     ) -> Result<(), Box<dyn Error>> {
         loop {
             match reader.read_event_into(buf)? {
-                Event::Start(ev) => match ev.name().as_ref() {
-                    b"Field" => {
-                        let mut key: String = "UNKNOWN".to_owned();
-                        match get_attributes(ev.attributes())?.get("key") {
-                            Some(value) => key = value.to_owned(),
-                            None => (),
-                        }
-                        self.table
-                            .schema
-                            .matrix
-                            .common
-                            .push(MatrixField { key: key })
-                    }
-                    _ => (),
-                },
-                Event::Empty(ev) => match ev.name().as_ref() {
+                Event::Start(ev) | Event::Empty(ev) => match ev.name().as_ref() {
                     b"Field" => {
                         let mut key: String = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
@@ -955,18 +944,7 @@ impl TableXmlParser {
     ) -> Result<(), Box<dyn Error>> {
         loop {
             match reader.read_event_into(buf)? {
-                Event::Start(ev) => match ev.name().as_ref() {
-                    b"Field" => {
-                        let mut key: String = "UNKNOWN".to_owned();
-                        match get_attributes(ev.attributes())?.get("key") {
-                            Some(value) => key = value.to_owned(),
-                            None => (),
-                        }
-                        specific.fields.push(MatrixField { key: key })
-                    }
-                    _ => (),
-                },
-                Event::Empty(ev) => match ev.name().as_ref() {
+                Event::Start(ev) | Event::Empty(ev) => match ev.name().as_ref() {
                     b"Field" => {
                         let mut key: String = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
@@ -986,6 +964,338 @@ impl TableXmlParser {
             buf.clear();
         }
         Ok(())
+    }
+
+    fn process_conditional_formattings(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Conditional-Formatting" => Self::process_conditional_formatting(
+                        self,
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Conditional-Formattings" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_conditional_formatting(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut conditional_formatting = ConditionalFormatting::new();
+        match attributes.get("key") {
+            Some(key) => conditional_formatting.key = key.to_owned(),
+            None => (),
+        }
+        match attributes.get("level") {
+            Some(level) => conditional_formatting.level = level.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => {
+                    match ev.name().as_ref() {
+                        b"Title" => conditional_formatting.title = Self::handle_text(reader, buf)?,
+                        b"Description" => {
+                            conditional_formatting.description =
+                                Self::handle_optional_text(reader, buf)?
+                        }
+                        b"Title-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => conditional_formatting.add_title_local(
+                                    Self::handle_optional_local(lang, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Description-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => conditional_formatting.add_description_local(
+                                    Self::handle_optional_local(lang, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Metadata" => {
+                            match get_attributes(ev.attributes())?.get("key") {
+                                Some(key) => conditional_formatting.add_metadata(
+                                    Self::handle_optional_metadata(key, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Default-Status" => Self::process_conditional_formatting_default_status(
+                            &mut conditional_formatting,
+                            get_attributes(ev.attributes())?,
+                            reader,
+                            buf,
+                        )?,
+                        b"Statuses" => Self::process_conditional_formatting_statuses(
+                            &mut conditional_formatting,
+                            reader,
+                            buf,
+                        )?,
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Conditional-Formatting" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        self.table
+            .schema
+            .conditional_formattings
+            .push(conditional_formatting);
+
+        Ok(())
+    }
+    fn process_conditional_formatting_default_status(
+        conditional_formatting: &mut ConditionalFormatting,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut default_status = DefaultStatus::new();
+        match attributes.get("key") {
+            Some(key) => default_status.key = key.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Title" => default_status.title = Self::handle_text(reader, buf)?,
+                    b"Color" => default_status.color = Self::handle_text(reader, buf)?,
+                    b"Description" => {
+                        default_status.description = Self::handle_optional_text(reader, buf)?
+                    }
+                    b"Title-Local" => {
+                        match get_attributes(ev.attributes())?.get("lang") {
+                            Some(lang) => default_status
+                                .add_title_local(Self::handle_optional_local(lang, reader, buf)?),
+                            None => (), // Ignore if there is no lang attribute
+                        }
+                    }
+                    b"Description-Local" => {
+                        match get_attributes(ev.attributes())?.get("lang") {
+                            Some(lang) => default_status.add_description_local(
+                                Self::handle_optional_local(lang, reader, buf)?,
+                            ),
+                            None => (), // Ignore if there is no lang attribute
+                        }
+                    }
+                    b"Metadata" => {
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(key) => default_status
+                                .add_metadata(Self::handle_optional_metadata(key, reader, buf)?),
+                            None => (), // Ignore if there is no lang attribute
+                        }
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Default-Status" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        conditional_formatting.default_status = default_status;
+        Ok(())
+    }
+    fn process_conditional_formatting_statuses(
+        conditional_formatting: &mut ConditionalFormatting,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Status" => Self::process_conditional_formatting_status(
+                        conditional_formatting,
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Statuses" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_conditional_formatting_status(
+        conditional_formatting: &mut ConditionalFormatting,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut status = Status::new();
+        match attributes.get("key") {
+            Some(key) => status.key = key.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => {
+                    match ev.name().as_ref() {
+                        b"Title" => status.title = Self::handle_text(reader, buf)?,
+                        b"Color" => status.color = Self::handle_text(reader, buf)?,
+                        b"Priority" => status.priority = Self::handle_number(reader, buf)?,
+                        b"Description" => {
+                            status.description = Self::handle_optional_text(reader, buf)?
+                        }
+                        b"Title-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => status.add_title_local(Self::handle_optional_local(
+                                    lang, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Description-Local" => {
+                            match get_attributes(ev.attributes())?.get("lang") {
+                                Some(lang) => status.add_description_local(
+                                    Self::handle_optional_local(lang, reader, buf)?,
+                                ),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Metadata" => {
+                            match get_attributes(ev.attributes())?.get("key") {
+                                Some(key) => status.add_metadata(Self::handle_optional_metadata(
+                                    key, reader, buf,
+                                )?),
+                                None => (), // Ignore if there is no lang attribute
+                            }
+                        }
+                        b"Rules" => Self::process_status_rules(&mut status, reader, buf)?,
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Status" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        conditional_formatting.statuses.push(status);
+        Ok(())
+    }
+    fn process_status_rules(
+        status: &mut Status,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Common" => Self::process_status_rules_common(status, reader, buf)?,
+                    // b"Specfic" => Self::process_status_rules_specific(
+                    //     status,
+                    //     get_attributes(ev.attributes()),
+                    //     reader,
+                    //     buf,
+                    // )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Rules" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_status_rules_common(
+        status: &mut Status,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Identifier" => {
+                        let mut key = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(key_s) => key = key_s.to_owned(),
+                            None => (),
+                        }
+                        let controls = Self::process_identifier_controls(reader, buf)?;
+                        if controls.len() > 0 {
+                            status.rules.common.push(CommonAttributeRules {
+                                attribute_type: AttributeType::Identifier,
+                                key: key,
+                                controls: controls,
+                            });
+                        }
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Common" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_identifier_controls(
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Vec<Control>, Box<dyn Error>> {
+        let mut controls: Vec<Control> = vec![];
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) | Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Rule-Barcode" => match get_attributes(ev.attributes())?.get("type") {
+                        Some(barcode_type) => controls.push(Control::RuleBarcode {
+                            barcode_type: barcode_type.to_owned(),
+                        }),
+                        None => (),
+                    },
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Identifier" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(controls)
     }
 
     fn process_sections(
@@ -1231,7 +1541,7 @@ impl TableXmlParser {
         }
         loop {
             match reader.read_event_into(buf)? {
-                Event::Empty(ev) => {
+                Event::Start(ev) | Event::Empty(ev) => {
                     let attributes = get_attributes(ev.attributes())?;
                     let key = attributes
                         .get("key")
@@ -1372,7 +1682,7 @@ impl TableXmlParser {
         }
         loop {
             match reader.read_event_into(buf)? {
-                Event::Empty(ev) => {
+                Event::Start(ev) | Event::Empty(ev) => {
                     let attributes = get_attributes(ev.attributes())?;
                     let key = attributes
                         .get("key")

@@ -82,7 +82,42 @@
             </Specific>
         </Matrix>
         <Formulas />
-        <Conditional-Formattings />
+        <Conditional-Formattings>
+            <Conditional-Formatting key="COMPLIANCE" level="PRODUCT">
+                <Title>Compliance</Title>
+                <Title-Local lang="fra">Conformité</Title-Local>
+                <Default-Status key="VALID">
+                    <Title>Valid</Title>
+                    <Title-Local lang="fra">Valide</Title-Local>
+                    <Color>GREEN</Color>
+                </Default-Status>
+                <Statuses>
+                    <Status key="INVALID">
+                        <Title>Invalid</Title>
+                        <Color>RED</Color>
+                        <Priority>1</Priority>
+                        <Rules>
+                            <Common>
+                                <Identifier key="EAN_13">
+                                    <Rule-Barcode type="EAN13"/>
+                                    <Rule-Required/>
+                                </Identifier>
+                                <Field key="TITLE_EN">
+                                    <Rule-Required />
+                                    <Rule-Min-Length min="3" />
+                                    <Rule-Max-Length max="27" />
+                                </Field>
+                            </Common>
+                        </Rules>
+                    </Status>
+                    <Status key="RECOMMENDED">
+                        <Title>Recommended</Title>
+                        <Color>ORANGE</Color>
+                        <Priority>2</Priority>
+                    </Status>
+                </Statuses>
+            </Conditional-Formatting>
+        </Conditional-Formattings>
         <Sections>
             <Section key="IDENTIFIERS">
                 <Title>Identifiers</Title>

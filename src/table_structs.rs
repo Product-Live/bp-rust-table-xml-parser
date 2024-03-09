@@ -27,6 +27,7 @@ impl Table {
                 identifiers: vec![],
                 classifications: vec![],
                 fields: vec![],
+                conditional_formattings: vec![],
                 matrix: Matrix {
                     common: vec![],
                     specifics: vec![],
@@ -73,6 +74,7 @@ pub struct Schema {
     pub classifications: Vec<Classification>,
     pub fields: Vec<Field>,
     pub matrix: Matrix,
+    pub conditional_formattings: Vec<ConditionalFormatting>,
     pub sections: Vec<Section>,
     pub screens: Vec<Screen>,
 }
@@ -634,25 +636,194 @@ pub struct ConditionalFormatting {
     pub description: Option<String>,
     pub title_locals: Option<Vec<Local>>,
     pub description_locals: Option<Vec<Local>>,
+    pub metadata: Option<Vec<Metadata>>,
     pub default_status: DefaultStatus,
     pub statuses: Vec<Status>,
+}
+impl ConditionalFormatting {
+    pub fn new() -> Self {
+        ConditionalFormatting {
+            key: "UNKNOWN".to_owned(),
+            level: "UNKNOWN".to_owned(),
+            title: "UNKNOWN".to_owned(),
+            description: None,
+            title_locals: None,
+            description_locals: None,
+            metadata: None,
+            default_status: DefaultStatus::new(),
+            statuses: vec![],
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.title_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.title_locals = Some(new_locals)
+                }
+                None => self.title_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_description_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.description_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.description_locals = Some(new_locals)
+                }
+                None => self.description_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_metadata(&mut self, metadata: Option<Metadata>) {
+        match metadata {
+            Some(metadata) => match self.metadata.as_ref() {
+                Some(metadatas) => {
+                    let mut new_mertadatas = metadatas.to_vec();
+                    new_mertadatas.push(metadata);
+                    self.metadata = Some(new_mertadatas)
+                }
+                None => self.metadata = Some(vec![metadata]),
+            },
+            None => (),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DefaultStatus {
     pub key: String,
-    pub level: String,
     pub title: String,
-    pub title_locals: Option<Vec<Local>>,
     pub color: String,
+    pub description: Option<String>,
+    pub title_locals: Option<Vec<Local>>,
+    pub description_locals: Option<Vec<Local>>,
+    pub metadata: Option<Vec<Metadata>>,
+}
+impl DefaultStatus {
+    pub fn new() -> Self {
+        DefaultStatus {
+            key: "UNKNOWN".to_owned(),
+            title: "UNKNOWN".to_owned(),
+            color: "NONE".to_owned(),
+            description: None,
+            title_locals: None,
+            description_locals: None,
+            metadata: None,
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.title_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.title_locals = Some(new_locals)
+                }
+                None => self.title_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_description_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.description_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.description_locals = Some(new_locals)
+                }
+                None => self.description_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_metadata(&mut self, metadata: Option<Metadata>) {
+        match metadata {
+            Some(metadata) => match self.metadata.as_ref() {
+                Some(metadatas) => {
+                    let mut new_mertadatas = metadatas.to_vec();
+                    new_mertadatas.push(metadata);
+                    self.metadata = Some(new_mertadatas)
+                }
+                None => self.metadata = Some(vec![metadata]),
+            },
+            None => (),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Status {
     pub key: String,
     pub title: String,
+    pub description: Option<String>,
     pub title_locals: Option<Vec<Local>>,
+    pub description_locals: Option<Vec<Local>>,
+    pub metadata: Option<Vec<Metadata>>,
     pub color: String,
     pub priority: usize,
     pub rules: Rules,
+}
+impl Status {
+    pub fn new() -> Self {
+        Status {
+            key: "UNKNOWN".to_owned(),
+            title: "UNKNOWN".to_owned(),
+            color: "NONE".to_owned(),
+            description: None,
+            title_locals: None,
+            description_locals: None,
+            metadata: None,
+            priority: 0,
+            rules: Rules {
+                common: vec![],
+                specifics: vec![],
+            },
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.title_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.title_locals = Some(new_locals)
+                }
+                None => self.title_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_description_local(&mut self, local: Option<Local>) {
+        match local {
+            Some(local) => match self.description_locals.as_ref() {
+                Some(locals) => {
+                    let mut new_locals = locals.to_vec();
+                    new_locals.push(local);
+                    self.description_locals = Some(new_locals)
+                }
+                None => self.description_locals = Some(vec![local]),
+            },
+            None => (),
+        }
+    }
+    pub fn add_metadata(&mut self, metadata: Option<Metadata>) {
+        match metadata {
+            Some(metadata) => match self.metadata.as_ref() {
+                Some(metadatas) => {
+                    let mut new_mertadatas = metadatas.to_vec();
+                    new_mertadatas.push(metadata);
+                    self.metadata = Some(new_mertadatas)
+                }
+                None => self.metadata = Some(vec![metadata]),
+            },
+            None => (),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rules {

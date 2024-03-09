@@ -123,6 +123,7 @@ mod tests {
                     common: vec![],
                     specifics: vec![],
                 },
+                conditional_formattings: vec![],
                 sections: vec![],
                 screens: vec![],
             },
@@ -130,8 +131,9 @@ mod tests {
 
         match TableXmlParser::read("./tests/input.xml") {
             Ok(table) => {
-                println!("{:#?}", table);
-                assert_eq!(table, expected)
+                println!("{:#?}", table.schema.conditional_formattings);
+                // assert_eq!(table, expected)
+                assert!(false)
             }
             Err(errors) => {
                 println!("{:#?}", errors);
