@@ -4,9 +4,9 @@ use quick_xml::{events::Event, Reader};
 
 use crate::{
     table_structs::{
-        Category, Classification, Column, CommonColumn, CommonSection, DataType, Field, Identifier,
-        Level, Local, MatrixField, MatrixSpecific, Metadata, Partition, Screen, Section,
-        SelectOption, Suffix, Table,
+        Category, Classification, Column, CommonColumn, CommonSection, DataType, Field,
+        GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, Partition,
+        Screen, Section, SelectOption, SpecificSection, Suffix, Table,
     },
     utils::get_attributes,
 };
@@ -1168,7 +1168,12 @@ impl TableXmlParser {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Line-Height" => screen.grid.line_height = Self::handle_text(reader, buf)?,
                     b"Common" => Self::process_grid_common(screen, reader, buf)?,
-                    // b"Specific" => Self::process_grid_specific(&mut screen, reader, buf)?,
+                    b"Specific" => Self::process_grid_specific(
+                        screen,
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )?,
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1183,7 +1188,6 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_grid_common(
-        // &mut self,
         screen: &mut Screen,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1211,7 +1215,6 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_grid_common_section(
-        // &mut self,
         attributes: HashMap<String, String>,
         screen: &mut Screen,
         reader: &mut Reader<BufReader<File>>,
@@ -1311,6 +1314,111 @@ impl TableXmlParser {
             buf.clear();
         }
         screen.grid.common.push(section);
+
+        Ok(())
+    }
+    fn process_grid_specific(
+        screen: &mut Screen,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut specific = GridSpecific::new();
+        match attributes.get("classification") {
+            Some(classification) => specific.classification = classification.to_owned(),
+            None => (),
+        }
+        match attributes.get("category") {
+            Some(category) => specific.category = category.to_owned(),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Section" => Self::process_grid_specific_section(
+                        &mut specific,
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Specific" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        screen.grid.specifics.push(specific);
+
+        Ok(())
+    }
+    fn process_grid_specific_section(
+        specific: &mut GridSpecific,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut section: SpecificSection = SpecificSection::new();
+        match attributes.get("key") {
+            Some(key) => section.key = key.to_owned(),
+            None => (),
+        }
+        match attributes.get("position") {
+            Some(position) => section.position = position.parse().unwrap_or(0),
+            None => (),
+        }
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Empty(ev) => {
+                    let attributes = get_attributes(ev.attributes())?;
+                    let key = attributes
+                        .get("key")
+                        .unwrap_or(&"UNKNWON".to_owned())
+                        .to_owned();
+                    let position = attributes
+                        .get("position")
+                        .unwrap_or(&"0".to_owned())
+                        .parse()
+                        .unwrap_or(0);
+                    let width = attributes.get("width").cloned();
+                    let read_only = match attributes.get("read-only") {
+                        Some(read_only) => match read_only.as_str() {
+                            "true" => Some(true),
+                            _ => None,
+                        },
+                        None => None,
+                    };
+                    let fixed = match attributes.get("fixed") {
+                        Some(fixed) => match fixed.as_str() {
+                            "true" => Some(true),
+                            _ => None,
+                        },
+                        None => None,
+                    };
+                    match ev.name().as_ref() {
+                        b"Column-Field" => section.columns.push(Column {
+                            key: key.to_owned(),
+                            position: position,
+                            width: width,
+                            read_only: read_only,
+                            fixed: fixed,
+                        }),
+                        _ => (),
+                    }
+                }
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Section" => break,
+                    b"Column-Field" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        specific.sections.push(section);
 
         Ok(())
     }

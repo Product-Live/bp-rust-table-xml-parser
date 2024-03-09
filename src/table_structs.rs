@@ -1039,11 +1039,29 @@ pub struct GridSpecific {
     pub category: String,
     pub sections: Vec<SpecificSection>,
 }
+impl GridSpecific {
+    pub fn new() -> Self {
+        GridSpecific {
+            classification: "UNKNOWN".to_owned(),
+            category: "UNKNOWN".to_owned(),
+            sections: vec![],
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpecificSection {
     pub key: String,
     pub position: u32,
     pub columns: Vec<Column>,
+}
+impl SpecificSection {
+    pub fn new() -> Self {
+        SpecificSection {
+            key: "UNKNOWN".to_owned(),
+            position: 0,
+            columns: vec![],
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Column {
