@@ -963,11 +963,11 @@ pub enum Control {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionRule {
-    key: String,
+    pub key: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConditionGroup {
-    conditions: Vec<Condition>,
+    pub conditions: Vec<Condition>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Condition {

@@ -6,8 +6,8 @@ use crate::{
     table_structs::{
         AttributeType, Category, Classification, Column, CommonAttributeRules, CommonColumn,
         CommonSection, ConditionalFormatting, Control, DataType, DefaultStatus, Field,
-        GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, Partition,
-        Screen, Section, SelectOption, SpecificSection, Status, Suffix, Table,
+        GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, OptionRule,
+        Partition, Screen, Section, SelectOption, SpecificSection, Status, Suffix, Table,
     },
     utils::get_attributes,
 };
@@ -1244,13 +1244,13 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Identifier" => {
+                    b"Identifier" | b"Classification" | b"Field" => {
                         let mut key = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
                             Some(key_s) => key = key_s.to_owned(),
                             None => (),
                         }
-                        let controls = Self::process_identifier_controls(reader, buf)?;
+                        let controls = Self::process_controls(reader, buf)?;
                         if controls.len() > 0 {
                             status.rules.common.push(CommonAttributeRules {
                                 attribute_type: AttributeType::Identifier,
@@ -1271,7 +1271,7 @@ impl TableXmlParser {
         }
         Ok(())
     }
-    fn process_identifier_controls(
+    fn process_controls(
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Vec<Control>, Box<dyn Error>> {
@@ -1279,16 +1279,308 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) | Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Rule-Required" => controls.push(Control::RuleRequired),
                     b"Rule-Barcode" => match get_attributes(ev.attributes())?.get("type") {
                         Some(barcode_type) => controls.push(Control::RuleBarcode {
                             barcode_type: barcode_type.to_owned(),
                         }),
                         None => (),
                     },
+                    b"Rule-Regex" => match get_attributes(ev.attributes())?.get("regex") {
+                        Some(regex) => controls.push(Control::RuleRegex {
+                            regex: regex.to_owned(),
+                        }),
+                        None => (),
+                    },
+                    b"Rule-Min-Length" => match get_attributes(ev.attributes())?.get("min") {
+                        Some(min) => match min.parse() {
+                            Ok(min) => controls.push(Control::RuleMinLength { min: min }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Max-Length" => match get_attributes(ev.attributes())?.get("max") {
+                        Some(max) => match max.parse() {
+                            Ok(max) => controls.push(Control::RuleMaxLength { max: max }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Is-Leaf" => controls.push(Control::RuleIsLeaf),
+                    b"Rule-Less-Than" => match get_attributes(ev.attributes())?.get("value") {
+                        Some(value) => match value.parse() {
+                            Ok(value) => controls.push(Control::RuleLessThan { value: value }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Greater-Than" => match get_attributes(ev.attributes())?.get("value") {
+                        Some(value) => match value.parse() {
+                            Ok(value) => controls.push(Control::RuleGreaterThan { value: value }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Less-Than-Or-Equal" => {
+                        match get_attributes(ev.attributes())?.get("value") {
+                            Some(value) => match value.parse() {
+                                Ok(value) => {
+                                    controls.push(Control::RuleLessThanOrEqual { value: value })
+                                }
+                                Err(_) => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Greater-Than-Or-Equal" => {
+                        match get_attributes(ev.attributes())?.get("value") {
+                            Some(value) => match value.parse() {
+                                Ok(value) => {
+                                    controls.push(Control::RuleGreaterThanOrEqual { value: value })
+                                }
+                                Err(_) => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Decimal-Places" => {
+                        match get_attributes(ev.attributes())?.get("precision") {
+                            Some(precision) => match precision.parse() {
+                                Ok(precision) => controls.push(Control::RuleDecimalPlaces {
+                                    precision: precision,
+                                }),
+                                Err(_) => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Min-Width-Px" => match get_attributes(ev.attributes())?.get("min") {
+                        Some(min) => match min.parse() {
+                            Ok(min) => controls.push(Control::RuleMinWidthPx { min: min }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Max-Width-Px" => match get_attributes(ev.attributes())?.get("max") {
+                        Some(max) => match max.parse() {
+                            Ok(max) => controls.push(Control::RuleMaxWidthPx { max: max }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Min-Height-Px" => match get_attributes(ev.attributes())?.get("min") {
+                        Some(min) => match min.parse() {
+                            Ok(min) => controls.push(Control::RuleMinHeightPx { min: min }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Max-Height-Px" => match get_attributes(ev.attributes())?.get("max") {
+                        Some(max) => match max.parse() {
+                            Ok(max) => controls.push(Control::RuleMaxHeightPx { max: max }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Max-Size-Kb" => match get_attributes(ev.attributes())?.get("max") {
+                        Some(max) => match max.parse() {
+                            Ok(max) => controls.push(Control::RuleMaxSizeKb { max: max }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Extension" => match get_attributes(ev.attributes())?.get("extension") {
+                        Some(extension) => controls.push(Control::RuleExtension {
+                            extension: extension.to_owned(),
+                        }),
+                        None => (),
+                    },
+                    b"Rule-Color-Space" => match get_attributes(ev.attributes())?.get("name") {
+                        Some(name) => controls.push(Control::RuleColorSpace {
+                            name: name.to_owned(),
+                        }),
+                        None => (),
+                    },
+                    b"Rule-Color-Profile" => match get_attributes(ev.attributes())?.get("name") {
+                        Some(name) => controls.push(Control::RuleColorProfile {
+                            name: name.to_owned(),
+                        }),
+                        None => (),
+                    },
+                    b"Rule-Min-Values" => match get_attributes(ev.attributes())?.get("min") {
+                        Some(min) => match min.parse() {
+                            Ok(min) => controls.push(Control::RuleMinValues { min: min }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Max-Values" => match get_attributes(ev.attributes())?.get("max") {
+                        Some(max) => match max.parse() {
+                            Ok(max) => controls.push(Control::RuleMaxValues { max: max }),
+                            Err(_) => (),
+                        },
+                        None => (),
+                    },
+                    b"Rule-Must-Be-Greater-Than-Another-Field" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => {
+                                controls.push(Control::RuleMustBeGreaterThanAnotherField {
+                                    field: field.to_owned(),
+                                })
+                            }
+                            None => (),
+                        }
+                    }
+                    b"Rule-Must-Be-Greater-Than-Or-Equal-Another-Field" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => {
+                                controls.push(Control::RuleMustBeGreaterThanOrEqualAnotherField {
+                                    field: field.to_owned(),
+                                })
+                            }
+                            None => (),
+                        }
+                    }
+                    b"Rule-Must-Be-Less-Than-Another-Field" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => controls.push(Control::RuleMustBeLessThanAnotherField {
+                                field: field.to_owned(),
+                            }),
+                            None => (),
+                        }
+                    }
+                    b"Rule-Must-Be-Less-Than-Or-Equal-Another-Field" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => {
+                                controls.push(Control::RuleMustBeLessThanOrEqualAnotherField {
+                                    field: field.to_owned(),
+                                })
+                            }
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Not-Empty" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => {
+                                controls.push(Control::RuleRequiredIfAnotherFieldIsNotEmpty {
+                                    field: field.to_owned(),
+                                })
+                            }
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Has-Options" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => {
+                                let mut options: Vec<OptionRule> = vec![];
+                                loop {
+                                    match reader.read_event_into(buf)? {
+                                        Event::Start(ev) | Event::Empty(ev) => {
+                                            match ev.name().as_ref() {
+                                                b"Option" => {
+                                                    match get_attributes(ev.attributes())?
+                                                        .get("key")
+                                                    {
+                                                        Some(key) => options.push(OptionRule {
+                                                            key: key.to_owned(),
+                                                        }),
+                                                        None => (),
+                                                    }
+                                                }
+                                                _ => (),
+                                            }
+                                        }
+                                        Event::End(ev) => break,
+                                        _ => (),
+                                    }
+                                }
+                                buf.clear();
+                                if options.len() > 0 {
+                                    controls.push(Control::RuleRequiredIfAnotherFieldHasOptions {
+                                        field: field.to_owned(),
+                                        options: options,
+                                    })
+                                }
+                            }
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Greater-Than" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => match get_attributes(ev.attributes())?.get("value") {
+                                Some(value) => controls.push(
+                                    Control::RuleRequiredIfAnotherFieldIsGreaterThan {
+                                        field: field.to_owned(),
+                                        value: value.to_owned(),
+                                    },
+                                ),
+                                None => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Greater-Than-Or-Equal" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => match get_attributes(ev.attributes())?.get("value") {
+                                Some(value) => controls.push(
+                                    Control::RuleRequiredIfAnotherFieldIsGreaterThanOrEqual {
+                                        field: field.to_owned(),
+                                        value: value.to_owned(),
+                                    },
+                                ),
+                                None => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Less-Than" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => match get_attributes(ev.attributes())?.get("value") {
+                                Some(value) => {
+                                    controls.push(Control::RuleRequiredIfAnotherFieldIsLessThan {
+                                        field: field.to_owned(),
+                                        value: value.to_owned(),
+                                    })
+                                }
+                                None => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Less-Than-Or-Equal" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => match get_attributes(ev.attributes())?.get("value") {
+                                Some(value) => controls.push(
+                                    Control::RuleRequiredIfAnotherFieldIsLessThanOrEqual {
+                                        field: field.to_owned(),
+                                        value: value.to_owned(),
+                                    },
+                                ),
+                                None => (),
+                            },
+                            None => (),
+                        }
+                    }
+                    b"Rule-Required-If-Another-Field-Is-Equal-To" => {
+                        match get_attributes(ev.attributes())?.get("field") {
+                            Some(field) => match get_attributes(ev.attributes())?.get("value") {
+                                Some(value) => {
+                                    controls.push(Control::RuleRequiredIfAnotherFieldIsEqualTo {
+                                        field: field.to_owned(),
+                                        value: value.to_owned(),
+                                    })
+                                }
+                                None => (),
+                            },
+                            None => (),
+                        }
+                    }
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
                     b"Identifier" => break,
+                    b"Classification" => break,
+                    b"Field" => break,
                     _ => (),
                 },
                 _ => (),
