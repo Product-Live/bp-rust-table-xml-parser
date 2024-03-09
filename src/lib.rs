@@ -131,7 +131,7 @@ mod tests {
 
         match TableXmlParser::read("./tests/input.xml") {
             Ok(table) => {
-                println!("{:#?}", table.schema.conditional_formattings);
+                println!("{:#?}", table.schema.partitions);
                 // assert_eq!(table, expected)
                 assert!(false)
             }

@@ -107,7 +107,25 @@
                                     <Rule-Min-Length min="3" />
                                     <Rule-Max-Length max="27" />
                                 </Field>
+                                <Field key="ATTR00480">
+                                    <Rule-Required/>
+                                    <Rule-Condition key="ATTR00480_NOT_EA">
+                                       <Conditions>
+                                          <Condition-Group>
+                                             <Condition source="ATTR00480" operator="NOT_IN">
+                                                <Value>PK (Pack / Carton/ Vendor outer pack)</Value>
+                                                <Value>PL (Palette)</Value>
+                                             </Condition>
+                                             <Condition source="ATTR00460" operator="GREATER_THAN">
+                                                <Value>1</Value>
+                                             </Condition>
+                                          </Condition-Group>
+                                       </Conditions>
+                                       <Title>L'arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title>
+                                    </Rule-Condition>
+                                 </Field>
                             </Common>
+                            <Specifics></Specifics>
                         </Rules>
                     </Status>
                     <Status key="RECOMMENDED">
