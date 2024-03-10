@@ -581,7 +581,7 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Field" => {
-                        Self::process_field(self, get_attributes(ev.attributes())?, reader, buf)?
+                        self.process_field(get_attributes(ev.attributes())?, reader, buf)?
                     }
                     _ => (),
                 },
