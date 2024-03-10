@@ -56,6 +56,7 @@
                     <Option key="RED" color="RED">
                         <Title>Red</Title>
                         <Title-Local lang="fra">Rouge</Title-Local>
+                        <Metadata key="SYSTEM">ERP</Metadata>
                     </Option>
                     <Option key="GREEN" color="GREEN">
                         <Title>Green</Title>
@@ -68,9 +69,25 @@
                 <Title-Local lang="fra">Stockage GB</Title-Local>
                 <Description>Storage capacity</Description>
                 <Description-Local lang="fra">Capacité de stockage</Description-Local>
-                <Metadata key="SYSTEM">ERP</Metadata>
+                <Metadata key="SYSTEM">2</Metadata>
                 <Suffix>GB</Suffix>
             </Field>
+            <Field key="CAMERA_RESOLUTION" type="NUMBER" level="product">
+                <Title>Camera resolution</Title>
+                <Description>The resolution of an image is the number of pixels contained in the image per unit length.</Description>
+                <Suffixes>
+                    <Suffix key="PIXEL" default="true">
+                        <Title>Pixel</Title>
+                        <Description>A unit of count defining the number of pixels</Description>
+                    </Suffix>
+                    <Suffix key="MEGAPIXEL">
+                        <Title>Megapixel</Title>
+                        <Description>A unit of count equal to 10⁶ (1000000) pixels (picture elements).</Description>
+                    </Suffix>
+                </Suffixes>
+            </Field>
+
+
         </Fields>
         <Matrix>
             <Common>
@@ -110,20 +127,20 @@
                                 <Field key="ATTR00480">
                                     <Rule-Required/>
                                     <Rule-Condition key="ATTR00480_NOT_EA">
-                                       <Conditions>
-                                          <Condition-Group>
-                                             <Condition source="ATTR00480" operator="NOT_IN">
-                                                <Value>PK (Pack / Carton/ Vendor outer pack)</Value>
-                                                <Value>PL (Palette)</Value>
-                                             </Condition>
-                                             <Condition source="ATTR00460" operator="GREATER_THAN">
-                                                <Value>1</Value>
-                                             </Condition>
-                                          </Condition-Group>
-                                       </Conditions>
-                                       <Title>L'arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title>
+                                        <Conditions>
+                                            <Condition-Group>
+                                                <Condition source="ATTR00480" operator="NOT_IN">
+                                                    <Value>PK (Pack / Carton/ Vendor outer pack)</Value>
+                                                    <Value>PL (Palette)</Value>
+                                                </Condition>
+                                                <Condition source="ATTR00460" operator="GREATER_THAN">
+                                                    <Value>1</Value>
+                                                </Condition>
+                                            </Condition-Group>
+                                        </Conditions>
+                                        <Title>L'arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title>
                                     </Rule-Condition>
-                                 </Field>
+                                </Field>
                             </Common>
                             <Specifics></Specifics>
                         </Rules>

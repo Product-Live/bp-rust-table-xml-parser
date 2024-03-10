@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, fs::File, io::BufReader};
+use std::{collections::HashMap, error::Error, fs::File, io::BufReader, str::from_utf8};
 
 use quick_xml::{events::Event, Reader};
 
@@ -490,15 +490,15 @@ impl TableXmlParser {
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
+        let mut categories: Vec<Category> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Category" => Self::process_category(
-                        classification,
+                    b"Category" => categories.push(Self::process_category(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
-                    )?,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -509,14 +509,14 @@ impl TableXmlParser {
             }
             buf.clear();
         }
+        classification.categories = categories;
         Ok(())
     }
     fn process_category(
-        classification: &mut Classification,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Category, Box<dyn Error>> {
         let mut category = Category::new();
         category.key = attributes
             .get("key")
@@ -569,8 +569,7 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        classification.categories.push(category);
-        Ok(())
+        Ok(category)
     }
 
     fn process_fields(
@@ -672,7 +671,10 @@ impl TableXmlParser {
                         }
                         b"Options" => Self::process_options(&mut field, reader, buf)?,
                         b"Suffixes" => Self::process_suffixes(&mut field, reader, buf)?,
-                        _ => (),
+                        name => Err(format!(
+                            "Unknown element name '{}' within a Field element",
+                            from_utf8(name).unwrap()
+                        ))?,
                     }
                 }
                 Event::End(ev) => match ev.name().as_ref() {
@@ -692,12 +694,15 @@ impl TableXmlParser {
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
+        let mut options: Vec<SelectOption> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Option" => {
-                        Self::process_option(field, get_attributes(ev.attributes())?, reader, buf)?
-                    }
+                    b"Option" => options.push(Self::process_option(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -708,14 +713,14 @@ impl TableXmlParser {
             }
             buf.clear();
         }
+        field.options = Some(options);
         Ok(())
     }
     fn process_option(
-        field: &mut Field,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<SelectOption, Box<dyn Error>> {
         let mut option = SelectOption::new();
         option.key = attributes
             .get("key")
@@ -757,6 +762,10 @@ impl TableXmlParser {
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
+                        name => Err(format!(
+                            "Unknown element name '{}' within a Option element",
+                            from_utf8(name).unwrap()
+                        ))?,
                         _ => (),
                     }
                 }
@@ -768,25 +777,30 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        if field.options.is_none() {
-            field.options = Some(vec![option]);
-        } else {
-            let mut new_options = field.options.as_ref().unwrap().to_vec();
-            new_options.push(option);
-            field.options = Some(new_options);
-        }
-        Ok(())
+        // if field.options.is_none() {
+        //     field.options = Some(vec![option]);
+        // } else {
+        //     let mut new_options = field.options.as_ref().unwrap().to_vec();
+        //     new_options.push(option);
+        //     field.options = Some(new_options);
+        // }
+        Ok(option)
     }
     fn process_suffixes(
         field: &mut Field,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
+        let mut suffixes: Vec<Suffix> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Suffix" => {
-                        Self::process_suffix(field, get_attributes(ev.attributes())?, reader, buf)?
+                        suffixes.push(Self::process_suffix(
+                            get_attributes(ev.attributes())?,
+                            reader,
+                            buf,
+                        )?);
                     }
                     _ => (),
                 },
@@ -798,14 +812,14 @@ impl TableXmlParser {
             }
             buf.clear();
         }
+        field.suffixes = Some(suffixes);
         Ok(())
     }
     fn process_suffix(
-        field: &mut Field,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Suffix, Box<dyn Error>> {
         let mut suffix = Suffix::new();
         suffix.key = attributes
             .get("key")
@@ -854,14 +868,7 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        if field.suffixes.is_none() {
-            field.suffixes = Some(vec![suffix]);
-        } else {
-            let mut new_suffixes = field.suffixes.as_ref().unwrap().to_vec();
-            new_suffixes.push(suffix);
-            field.suffixes = Some(new_suffixes);
-        }
-        Ok(())
+        Ok(suffix)
     }
 
     fn process_matrix(

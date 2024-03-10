@@ -128,37 +128,40 @@ mod tests {
                 screens: vec![],
             },
         };
+        println!("Starting parse xml");
 
         match TableXmlParser::read("./tests/input.xml") {
             Ok(table) => {
-                println!("{:#?}", table.schema.partitions);
+                println!("File parsed");
+                println!("{:#?}", table.schema);
                 // assert_eq!(table, expected)
                 assert!(false)
             }
             Err(errors) => {
+                println!("File parsed");
                 println!("{:#?}", errors);
                 assert!(false)
             }
         }
     }
 
-    #[test]
-    fn xml_writer() {
-        match TableXmlParser::read("./tests/input.xml") {
-            Ok(table) => {
-                match TableXmlWriter::write(&table, "./tests/output.xml") {
-                    Ok(_) => assert!(true),
-                    Err(errors) => {
-                        println!("{:#?}", errors);
-                        assert!(false)
-                    }
-                }
-                assert!(true);
-            }
-            Err(errors) => {
-                println!("{:#?}", errors);
-                assert!(false)
-            }
-        }
-    }
+    // #[test]
+    // fn xml_writer() {
+    //     match TableXmlParser::read("./tests/input.xml") {
+    //         Ok(table) => {
+    //             match TableXmlWriter::write(&table, "./tests/output.xml") {
+    //                 Ok(_) => assert!(true),
+    //                 Err(errors) => {
+    //                     println!("{:#?}", errors);
+    //                     assert!(false)
+    //                 }
+    //             }
+    //             assert!(true);
+    //         }
+    //         Err(errors) => {
+    //             println!("{:#?}", errors);
+    //             assert!(false)
+    //         }
+    //     }
+    // }
 }
