@@ -1,28 +1,37 @@
 use std::{collections::HashMap, error::Error, fs::File, io::BufReader, str::from_utf8};
 
 use quick_xml::{events::Event, Reader};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     table_structs::{
         AttributeType, Category, Classification, Column, CommonAttributeRules, CommonColumn,
         CommonSection, ConditionalFormatting, Control, DataType, DefaultStatus, Field,
         GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, OptionRule,
-        Partition, Screen, Section, SelectOption, SpecificSection, Status, Suffix, Table,
+        Partition, Screen, Section, SelectOption, SpecificAttributeRules, SpecificRules,
+        SpecificSection, Status, Suffix, Table,
     },
     utils::get_attributes,
 };
-
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LogWarning {
+    code: String,
+    message: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TableXmlParser {
     pub table: Table,
+    pub warnings: Vec<LogWarning>,
 }
 
 impl TableXmlParser {
-    pub fn read(path: &str) -> Result<Table, Box<dyn Error>> {
+    pub fn read(path: &str) -> Result<TableXmlParser, Box<dyn Error>> {
         let mut xml_parser = TableXmlParser {
             table: Table::new(),
+            warnings: vec![],
         };
         xml_parser.process_xml(path)?;
-        Ok(xml_parser.table)
+        Ok(xml_parser)
     }
     // Parse xml file
     fn process_xml(&mut self, path: &str) -> Result<(), Box<dyn Error>> {
@@ -65,32 +74,37 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => self.table.title = Self::handle_text(reader, buf)?,
-                        b"Position" => self.table.position = Self::handle_number(reader, buf)?,
-                        b"Color" => self.table.color = Self::handle_text(reader, buf)?,
+                        b"Title" => self.table.title = self.handle_text(reader, buf)?,
+                        b"Position" => self.table.position = self.handle_number(reader, buf)?,
+                        b"Color" => self.table.color = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            self.table.description = Self::handle_optional_text(reader, buf)?
+                            self.table.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => self.table.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
-                                ),
+                                Some(lang) => {
+                                    match self.handle_optional_local(lang, reader, buf)? {
+                                        Some(local) => self.table.add_title_local(Some(local)),
+                                        None => (),
+                                    }
+                                }
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => {
-                                    self.table
-                                        .add_description_local(Self::handle_optional_local(
-                                            lang, reader, buf,
-                                        )?)
+                                    match self.handle_optional_local(lang, reader, buf)? {
+                                        Some(local) => {
+                                            self.table.add_description_local(Some(local))
+                                        }
+                                        None => (),
+                                    }
                                 }
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        b"Schema" => Self::process_schema(self, reader, buf)?,
+                        b"Schema" => self.process_schema(reader, buf)?,
                         _ => (),
                     }
                 }
@@ -112,17 +126,17 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Partitions" => Self::process_partitions(self, reader, buf)?,
-                    b"Levels" => Self::process_levels(self, reader, buf)?,
-                    b"Identifiers" => Self::process_identifiers(self, reader, buf)?,
-                    b"Classifications" => Self::process_classifications(self, reader, buf)?,
-                    b"Fields" => Self::process_fields(self, reader, buf)?,
-                    b"Matrix" => Self::process_matrix(self, reader, buf)?,
+                    b"Partitions" => self.process_partitions(reader, buf)?,
+                    b"Levels" => self.process_levels(reader, buf)?,
+                    b"Identifiers" => self.process_identifiers(reader, buf)?,
+                    b"Classifications" => self.process_classifications(reader, buf)?,
+                    b"Fields" => self.process_fields(reader, buf)?,
+                    b"Matrix" => self.process_matrix(reader, buf)?,
                     b"Conditional-Formattings" => {
-                        Self::process_conditional_formattings(self, reader, buf)?
+                        self.process_conditional_formattings(reader, buf)?
                     }
-                    b"Sections" => Self::process_sections(self, reader, buf)?,
-                    b"Screens" => Self::process_screens(self, reader, buf)?,
+                    b"Sections" => self.process_sections(reader, buf)?,
+                    b"Screens" => self.process_screens(reader, buf)?,
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -144,12 +158,9 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Partition" => Self::process_partition(
-                        self,
-                        get_attributes(ev.attributes())?,
-                        reader,
-                        buf,
-                    )?,
+                    b"Partition" => {
+                        self.process_partition(get_attributes(ev.attributes())?, reader, buf)?
+                    }
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -177,14 +188,14 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => partition.title = Self::handle_text(reader, buf)?,
+                        b"Title" => partition.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            partition.description = Self::handle_optional_text(reader, buf)?
+                            partition.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => partition.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
@@ -192,16 +203,15 @@ impl TableXmlParser {
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => partition.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => partition.add_metadata(
-                                    Self::handle_optional_metadata(key, reader, buf)?,
-                                ),
+                                Some(key) => partition
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -229,7 +239,7 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Level" => {
-                        Self::process_level(self, get_attributes(ev.attributes())?, reader, buf)?
+                        self.process_level(get_attributes(ev.attributes())?, reader, buf)?
                     }
                     _ => (),
                 },
@@ -263,31 +273,30 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => level.title = Self::handle_text(reader, buf)?,
+                        b"Title" => level.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            level.description = Self::handle_optional_text(reader, buf)?
+                            level.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => level.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => level.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => level.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => level.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => level
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -314,12 +323,9 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Identifier" => Self::process_identifier(
-                        self,
-                        get_attributes(ev.attributes())?,
-                        reader,
-                        buf,
-                    )?,
+                    b"Identifier" => {
+                        self.process_identifier(get_attributes(ev.attributes())?, reader, buf)?
+                    }
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -356,14 +362,14 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => identifier.title = Self::handle_text(reader, buf)?,
+                        b"Title" => identifier.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            identifier.description = Self::handle_optional_text(reader, buf)?
+                            identifier.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => identifier.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
@@ -371,16 +377,15 @@ impl TableXmlParser {
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => identifier.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => identifier.add_metadata(
-                                    Self::handle_optional_metadata(key, reader, buf)?,
-                                ),
+                                Some(key) => identifier
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -407,12 +412,9 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Classification" => Self::process_classification(
-                        self,
-                        get_attributes(ev.attributes())?,
-                        reader,
-                        buf,
-                    )?,
+                    b"Classification" => {
+                        self.process_classification(get_attributes(ev.attributes())?, reader, buf)?
+                    }
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -440,14 +442,14 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => classification.title = Self::handle_text(reader, buf)?,
+                        b"Title" => classification.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            classification.description = Self::handle_optional_text(reader, buf)?
+                            classification.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => classification.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
@@ -455,21 +457,20 @@ impl TableXmlParser {
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => classification.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => classification.add_metadata(
-                                    Self::handle_optional_metadata(key, reader, buf)?,
-                                ),
+                                Some(key) => classification
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Categories" => {
-                            Self::process_categories(&mut classification, reader, buf)?
+                            classification.categories = self.process_categories(reader, buf)?
                         }
                         _ => (),
                     }
@@ -486,15 +487,15 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_categories(
-        classification: &mut Classification,
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Vec<Category>, Box<dyn Error>> {
         let mut categories: Vec<Category> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Category" => categories.push(Self::process_category(
+                    b"Category" => categories.push(self.process_category(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
@@ -509,10 +510,10 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        classification.categories = categories;
-        Ok(())
+        Ok(categories)
     }
     fn process_category(
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -530,14 +531,14 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => category.title = Self::handle_text(reader, buf)?,
+                        b"Title" => category.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            category.description = Self::handle_optional_text(reader, buf)?
+                            category.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => category.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
@@ -545,16 +546,15 @@ impl TableXmlParser {
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => category.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => category.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => category
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -636,45 +636,47 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => field.title = Self::handle_text(reader, buf)?,
+                        b"Title" => field.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            field.description = Self::handle_optional_text(reader, buf)?
+                            field.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => field.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => field.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => field.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => field.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => field
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        b"Prefix" => field.prefix = Self::handle_optional_text(reader, buf)?,
-                        b"Suffix" => field.suffix = Self::handle_optional_text(reader, buf)?,
+                        b"Prefix" => field.prefix = self.handle_optional_text(reader, buf)?,
+                        b"Suffix" => field.suffix = self.handle_optional_text(reader, buf)?,
                         b"Precision" => {
-                            field.precision = Self::handle_optional_number(reader, buf)?
+                            field.precision = self.handle_optional_number(reader, buf)?
                         }
-                        b"Options" => Self::process_options(&mut field, reader, buf)?,
-                        b"Suffixes" => Self::process_suffixes(&mut field, reader, buf)?,
-                        name => Err(format!(
-                            "Unknown element name '{}' within a Field element",
-                            from_utf8(name).unwrap()
-                        ))?,
+                        b"Options" => self.process_options(&mut field, reader, buf)?,
+                        b"Suffixes" => self.process_suffixes(&mut field, reader, buf)?,
+                        name => self.add_warning(LogWarning {
+                            code: "UNKNOWN_ELEMENT_NAME".to_owned(),
+                            message: format!(
+                                "Unknown element name '{}' in Field",
+                                from_utf8(name)?
+                            ),
+                        }),
                     }
                 }
                 Event::End(ev) => match ev.name().as_ref() {
@@ -690,6 +692,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_options(
+        &mut self,
         field: &mut Field,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -698,7 +701,7 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Option" => options.push(Self::process_option(
+                    b"Option" => options.push(self.process_option(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
@@ -717,6 +720,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_option(
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -734,38 +738,37 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => option.title = Self::handle_text(reader, buf)?,
+                        b"Title" => option.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            option.description = Self::handle_optional_text(reader, buf)?
+                            option.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => option.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => option.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => option.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => option.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => option
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        name => Err(format!(
-                            "Unknown element name '{}' within a Option element",
-                            from_utf8(name).unwrap()
-                        ))?,
+                        // name => Err(format!(
+                        //     "Unknown element name '{}' within a Option element",
+                        //     from_utf8(name).unwrap()
+                        // ))?,
                         _ => (),
                     }
                 }
@@ -777,16 +780,10 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        // if field.options.is_none() {
-        //     field.options = Some(vec![option]);
-        // } else {
-        //     let mut new_options = field.options.as_ref().unwrap().to_vec();
-        //     new_options.push(option);
-        //     field.options = Some(new_options);
-        // }
         Ok(option)
     }
     fn process_suffixes(
+        &mut self,
         field: &mut Field,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -796,7 +793,7 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Suffix" => {
-                        suffixes.push(Self::process_suffix(
+                        suffixes.push(self.process_suffix(
                             get_attributes(ev.attributes())?,
                             reader,
                             buf,
@@ -816,6 +813,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_suffix(
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -829,31 +827,30 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => suffix.title = Self::handle_text(reader, buf)?,
+                        b"Title" => suffix.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            suffix.description = Self::handle_optional_text(reader, buf)?
+                            suffix.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => suffix.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => suffix.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => suffix.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => suffix.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => suffix
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -879,7 +876,7 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Common" => Self::process_matrix_common(self, reader, buf)?,
+                    b"Common" => self.process_matrix_common(reader, buf)?,
                     b"Specific" => {
                         let mut classification: String = "UNKNOWN".to_owned();
                         let mut category: String = "UNKNOWN".to_owned();
@@ -897,7 +894,7 @@ impl TableXmlParser {
                             category: category,
                             fields: vec![],
                         };
-                        Self::process_matrix_specific(&mut specific, reader, buf)?;
+                        self.process_matrix_specific(&mut specific, reader, buf)?;
                         self.table.schema.matrix.specifics.push(specific)
                     }
                     _ => (),
@@ -945,6 +942,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_matrix_specific(
+        &self,
         specific: &mut MatrixSpecific,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -981,8 +979,7 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Conditional-Formatting" => Self::process_conditional_formatting(
-                        self,
+                    b"Conditional-Formatting" => self.process_conditional_formatting(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
@@ -1018,15 +1015,15 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => conditional_formatting.title = Self::handle_text(reader, buf)?,
+                        b"Title" => conditional_formatting.title = self.handle_text(reader, buf)?,
                         b"Description" => {
                             conditional_formatting.description =
-                                Self::handle_optional_text(reader, buf)?
+                                self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => conditional_formatting.add_title_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
@@ -1034,26 +1031,25 @@ impl TableXmlParser {
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => conditional_formatting.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => conditional_formatting.add_metadata(
-                                    Self::handle_optional_metadata(key, reader, buf)?,
-                                ),
+                                Some(key) => conditional_formatting
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        b"Default-Status" => Self::process_conditional_formatting_default_status(
+                        b"Default-Status" => self.process_conditional_formatting_default_status(
                             &mut conditional_formatting,
                             get_attributes(ev.attributes())?,
                             reader,
                             buf,
                         )?,
-                        b"Statuses" => Self::process_conditional_formatting_statuses(
+                        b"Statuses" => self.process_conditional_formatting_statuses(
                             &mut conditional_formatting,
                             reader,
                             buf,
@@ -1077,6 +1073,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_conditional_formatting_default_status(
+        &mut self,
         conditional_formatting: &mut ConditionalFormatting,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
@@ -1090,22 +1087,22 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Title" => default_status.title = Self::handle_text(reader, buf)?,
-                    b"Color" => default_status.color = Self::handle_text(reader, buf)?,
+                    b"Title" => default_status.title = self.handle_text(reader, buf)?,
+                    b"Color" => default_status.color = self.handle_text(reader, buf)?,
                     b"Description" => {
-                        default_status.description = Self::handle_optional_text(reader, buf)?
+                        default_status.description = self.handle_optional_text(reader, buf)?
                     }
                     b"Title-Local" => {
                         match get_attributes(ev.attributes())?.get("lang") {
                             Some(lang) => default_status
-                                .add_title_local(Self::handle_optional_local(lang, reader, buf)?),
+                                .add_title_local(self.handle_optional_local(lang, reader, buf)?),
                             None => (), // Ignore if there is no lang attribute
                         }
                     }
                     b"Description-Local" => {
                         match get_attributes(ev.attributes())?.get("lang") {
                             Some(lang) => default_status.add_description_local(
-                                Self::handle_optional_local(lang, reader, buf)?,
+                                self.handle_optional_local(lang, reader, buf)?,
                             ),
                             None => (), // Ignore if there is no lang attribute
                         }
@@ -1113,7 +1110,7 @@ impl TableXmlParser {
                     b"Metadata" => {
                         match get_attributes(ev.attributes())?.get("key") {
                             Some(key) => default_status
-                                .add_metadata(Self::handle_optional_metadata(key, reader, buf)?),
+                                .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                             None => (), // Ignore if there is no lang attribute
                         }
                     }
@@ -1131,19 +1128,20 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_conditional_formatting_statuses(
+        &mut self,
         conditional_formatting: &mut ConditionalFormatting,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
+        let mut statuses: Vec<Status> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Status" => Self::process_conditional_formatting_status(
-                        conditional_formatting,
+                    b"Status" => statuses.push(self.process_conditional_formatting_status(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
-                    )?,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1154,14 +1152,15 @@ impl TableXmlParser {
             }
             buf.clear();
         }
+        conditional_formatting.statuses = statuses;
         Ok(())
     }
     fn process_conditional_formatting_status(
-        conditional_formatting: &mut ConditionalFormatting,
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Status, Box<dyn Error>> {
         let mut status = Status::new();
         match attributes.get("key") {
             Some(key) => status.key = key.to_owned(),
@@ -1171,37 +1170,36 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => status.title = Self::handle_text(reader, buf)?,
-                        b"Color" => status.color = Self::handle_text(reader, buf)?,
-                        b"Priority" => status.priority = Self::handle_number(reader, buf)?,
+                        b"Title" => status.title = self.handle_text(reader, buf)?,
+                        b"Color" => status.color = self.handle_text(reader, buf)?,
+                        b"Priority" => status.priority = self.handle_number(reader, buf)?,
                         b"Description" => {
-                            status.description = Self::handle_optional_text(reader, buf)?
+                            status.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => status.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => status.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => status.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => status.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => status
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        b"Rules" => Self::process_status_rules(&mut status, reader, buf)?,
+                        b"Rules" => self.process_status_rules(&mut status, reader, buf)?,
                         _ => (),
                     }
                 }
@@ -1213,10 +1211,10 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        conditional_formatting.statuses.push(status);
-        Ok(())
+        Ok(status)
     }
     fn process_status_rules(
+        &self,
         status: &mut Status,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1224,13 +1222,17 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Common" => Self::process_status_rules_common(status, reader, buf)?,
-                    // b"Specfic" => Self::process_status_rules_specific(
-                    //     status,
-                    //     get_attributes(ev.attributes()),
-                    //     reader,
-                    //     buf,
-                    // )?,
+                    b"Common" => {
+                        status.rules.common = self.process_status_rules_common(reader, buf)?
+                    }
+                    b"Specfic" => match self.process_status_rules_specific(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )? {
+                        Some(specific_rules) => status.rules.specifics.push(specific_rules),
+                        None => (),
+                    },
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1244,10 +1246,11 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_status_rules_common(
-        status: &mut Status,
+        &self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Vec<CommonAttributeRules>, Box<dyn Error>> {
+        let mut common: Vec<CommonAttributeRules> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
@@ -1257,9 +1260,9 @@ impl TableXmlParser {
                             Some(key_s) => key = key_s.to_owned(),
                             None => (),
                         }
-                        let controls = Self::process_controls(reader, buf)?;
+                        let controls = self.process_controls(reader, buf)?;
                         if controls.len() > 0 {
-                            status.rules.common.push(CommonAttributeRules {
+                            common.push(CommonAttributeRules {
                                 attribute_type: AttributeType::Identifier,
                                 key: key,
                                 controls: controls,
@@ -1276,9 +1279,62 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        Ok(())
+        Ok(common)
+    }
+    fn process_status_rules_specific(
+        &self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<SpecificRules>, Box<dyn Error>> {
+        match attributes.get("classification") {
+            Some(classification) => match attributes.get("category") {
+                Some(category) => {
+                    let mut attributes: Vec<SpecificAttributeRules> = vec![];
+                    loop {
+                        match reader.read_event_into(buf)? {
+                            Event::Start(ev) => match ev.name().as_ref() {
+                                b"Field" => {
+                                    let mut key = "UNKNOWN".to_owned();
+                                    match get_attributes(ev.attributes())?.get("key") {
+                                        Some(key_s) => key = key_s.to_owned(),
+                                        None => (),
+                                    }
+                                    let controls = self.process_controls(reader, buf)?;
+                                    if controls.len() > 0 {
+                                        attributes.push(SpecificAttributeRules {
+                                            key: key,
+                                            controls: controls,
+                                        })
+                                    }
+                                }
+                                _ => (),
+                            },
+                            Event::End(ev) => match ev.name().as_ref() {
+                                b"Specific" => break,
+                                _ => (),
+                            },
+                            _ => (),
+                        }
+                        buf.clear();
+                    }
+                    if attributes.len() > 0 {
+                        Ok(Some(SpecificRules::new(
+                            classification.to_owned(),
+                            category.to_owned(),
+                            attributes,
+                        )))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                None => Ok(None),
+            },
+            None => Ok(None),
+        }
     }
     fn process_controls(
+        &self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Vec<Control>, Box<dyn Error>> {
@@ -1606,7 +1662,7 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Section" => {
-                        Self::process_section(self, get_attributes(ev.attributes())?, reader, buf)?
+                        self.process_section(get_attributes(ev.attributes())?, reader, buf)?
                     }
                     _ => (),
                 },
@@ -1635,31 +1691,30 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => section.title = Self::handle_text(reader, buf)?,
+                        b"Title" => section.title = self.handle_text(reader, buf)?,
                         b"Description" => {
-                            section.description = Self::handle_optional_text(reader, buf)?
+                            section.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => section.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => section.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => section.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => section.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => section
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
@@ -1688,7 +1743,7 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Screen" => {
-                        Self::process_screen(self, get_attributes(ev.attributes())?, reader, buf)?
+                        self.process_screen(get_attributes(ev.attributes())?, reader, buf)?
                     }
                     _ => (),
                 },
@@ -1721,36 +1776,35 @@ impl TableXmlParser {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
-                        b"Title" => screen.title = Self::handle_text(reader, buf)?,
-                        b"Position" => screen.position = Self::handle_number(reader, buf)?,
+                        b"Title" => screen.title = self.handle_text(reader, buf)?,
+                        b"Position" => screen.position = self.handle_number(reader, buf)?,
                         b"Description" => {
-                            screen.description = Self::handle_optional_text(reader, buf)?
+                            screen.description = self.handle_optional_text(reader, buf)?
                         }
                         b"Title-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
-                                Some(lang) => screen.add_title_local(Self::handle_optional_local(
-                                    lang, reader, buf,
-                                )?),
+                                Some(lang) => screen.add_title_local(
+                                    self.handle_optional_local(lang, reader, buf)?,
+                                ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Description-Local" => {
                             match get_attributes(ev.attributes())?.get("lang") {
                                 Some(lang) => screen.add_description_local(
-                                    Self::handle_optional_local(lang, reader, buf)?,
+                                    self.handle_optional_local(lang, reader, buf)?,
                                 ),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
                         b"Metadata" => {
                             match get_attributes(ev.attributes())?.get("key") {
-                                Some(key) => screen.add_metadata(Self::handle_optional_metadata(
-                                    key, reader, buf,
-                                )?),
+                                Some(key) => screen
+                                    .add_metadata(self.handle_optional_metadata(key, reader, buf)?),
                                 None => (), // Ignore if there is no lang attribute
                             }
                         }
-                        b"Grid" => Self::process_screen_grid(&mut screen, reader, buf)?,
+                        b"Grid" => self.process_screen_grid(&mut screen, reader, buf)?,
                         _ => (),
                     }
                 }
@@ -1767,7 +1821,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_screen_grid(
-        // &mut self,
+        &mut self,
         screen: &mut Screen,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1775,14 +1829,13 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Line-Height" => screen.grid.line_height = Self::handle_text(reader, buf)?,
-                    b"Common" => Self::process_grid_common(screen, reader, buf)?,
-                    b"Specific" => Self::process_grid_specific(
-                        screen,
+                    b"Line-Height" => screen.grid.line_height = self.handle_text(reader, buf)?,
+                    b"Common" => screen.grid.common = self.process_grid_common(reader, buf)?,
+                    b"Specific" => screen.grid.specifics.push(self.process_grid_specific(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
-                    )?,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1797,19 +1850,19 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_grid_common(
-        screen: &mut Screen,
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Vec<CommonSection>, Box<dyn Error>> {
+        let mut common: Vec<CommonSection> = vec![];
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Section" => Self::process_grid_common_section(
+                    b"Section" => common.push(self.process_grid_common_section(
                         get_attributes(ev.attributes())?,
-                        screen,
                         reader,
                         buf,
-                    )?,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1820,15 +1873,14 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-
-        Ok(())
+        Ok(common)
     }
     fn process_grid_common_section(
+        &mut self,
         attributes: HashMap<String, String>,
-        screen: &mut Screen,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<CommonSection, Box<dyn Error>> {
         let mut section: CommonSection = CommonSection::new();
         match attributes.get("key") {
             Some(key) => section.key = key.to_owned(),
@@ -1922,17 +1974,16 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        screen.grid.common.push(section);
 
-        Ok(())
+        Ok(section)
     }
     fn process_grid_specific(
-        screen: &mut Screen,
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut specific = GridSpecific::new();
+    ) -> Result<GridSpecific, Box<dyn Error>> {
+        let mut specific: GridSpecific = GridSpecific::new();
         match attributes.get("classification") {
             Some(classification) => specific.classification = classification.to_owned(),
             None => (),
@@ -1944,12 +1995,11 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Section" => Self::process_grid_specific_section(
-                        &mut specific,
+                    b"Section" => specific.sections.push(self.process_grid_specific_section(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
-                    )?,
+                    )?),
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1960,16 +2010,15 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        screen.grid.specifics.push(specific);
 
-        Ok(())
+        Ok(specific)
     }
     fn process_grid_specific_section(
-        specific: &mut GridSpecific,
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<SpecificSection, Box<dyn Error>> {
         let mut section: SpecificSection = SpecificSection::new();
         match attributes.get("key") {
             Some(key) => section.key = key.to_owned(),
@@ -2027,13 +2076,13 @@ impl TableXmlParser {
             }
             buf.clear();
         }
-        specific.sections.push(section);
 
-        Ok(())
+        Ok(section)
     }
 
     // Generic functions to handle text, number... private to this context
     fn handle_text(
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<String, Box<dyn Error>> {
@@ -2049,6 +2098,7 @@ impl TableXmlParser {
         Ok(text)
     }
     fn handle_optional_text(
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Option<String>, Box<dyn Error>> {
@@ -2069,6 +2119,7 @@ impl TableXmlParser {
         }
     }
     fn handle_optional_number(
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Option<usize>, Box<dyn Error>> {
@@ -2087,6 +2138,7 @@ impl TableXmlParser {
         Ok(number)
     }
     fn handle_optional_local(
+        &mut self,
         lang: &String,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -2110,6 +2162,7 @@ impl TableXmlParser {
         }
     }
     fn handle_optional_metadata(
+        &mut self,
         key: &String,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -2133,6 +2186,7 @@ impl TableXmlParser {
         }
     }
     fn handle_number(
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<usize, Box<dyn Error>> {
@@ -2146,5 +2200,8 @@ impl TableXmlParser {
             buf.clear();
         }
         Ok(number)
+    }
+    fn add_warning(&mut self, log: LogWarning) {
+        self.warnings.push(log)
     }
 }

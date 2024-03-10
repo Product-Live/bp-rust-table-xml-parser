@@ -848,6 +848,19 @@ pub struct SpecificRules {
     pub category: String,
     pub attributes: Vec<SpecificAttributeRules>,
 }
+impl SpecificRules {
+    pub fn new(
+        classification: String,
+        category: String,
+        attributes: Vec<SpecificAttributeRules>,
+    ) -> Self {
+        SpecificRules {
+            classification: classification,
+            category: category,
+            attributes: attributes,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpecificAttributeRules {
     pub key: String,

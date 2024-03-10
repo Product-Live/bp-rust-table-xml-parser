@@ -10,7 +10,7 @@ mod tests {
         Category, Classification, DataType, Field, Identifier, Level, Local, Matrix, Metadata,
         Partition, Schema, Table,
     };
-    use crate::table_xml_parser::TableXmlParser;
+    use crate::table_xml_parser::{self, TableXmlParser};
     use crate::table_xml_writer::TableXmlWriter;
 
     #[test]
@@ -130,10 +130,10 @@ mod tests {
         };
         println!("Starting parse xml");
 
-        match TableXmlParser::read("./tests/input.xml") {
-            Ok(table) => {
+        match TableXmlParser::read("./tests/castorama-wip.xml") {
+            Ok(table_xml_parser) => {
                 println!("File parsed");
-                println!("{:#?}", table.schema);
+                println!("{:#?}", table_xml_parser.table.schema.fields.len());
                 // assert_eq!(table, expected)
                 assert!(false)
             }
