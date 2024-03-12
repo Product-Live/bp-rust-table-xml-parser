@@ -130,10 +130,10 @@ mod tests {
         };
         println!("Starting parse xml");
 
-        match TableXmlParser::read("./tests/castorama-wip.xml") {
+        match TableXmlParser::read("./tests/fnac.xml") {
             Ok(table_xml_parser) => {
                 println!("File parsed");
-                println!("{:#?}", table_xml_parser.table.schema.fields.len());
+                println!("{:#?}", table_xml_parser.warnings);
                 // assert_eq!(table, expected)
                 assert!(false)
             }

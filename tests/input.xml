@@ -129,6 +129,7 @@
                                     <Rule-Condition key="ATTR00480_NOT_EA">
                                         <Conditions>
                                             <Condition-Group>
+                                                <Condition source="ATTR00480" operator="EMPTY" />
                                                 <Condition source="ATTR00480" operator="NOT_IN">
                                                     <Value>PK (Pack / Carton/ Vendor outer pack)</Value>
                                                     <Value>PL (Palette)</Value>
@@ -139,6 +140,7 @@
                                             </Condition-Group>
                                         </Conditions>
                                         <Title>L'arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title>
+                                        <Title-Local lang="fra">Round must PK or PL</Title-Local>
                                     </Rule-Condition>
                                 </Field>
                             </Common>

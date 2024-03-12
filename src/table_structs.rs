@@ -969,10 +969,51 @@ pub enum Control {
     },
     RuleCondition {
         key: String,
-        conditions: Vec<ConditionGroup>,
+        condition_groups: Vec<ConditionGroup>,
         title: String,
         title_locals: Option<Vec<Local>>,
     },
+}
+impl Control {
+    pub fn set_title(&mut self, value: String) {
+        if let Control::RuleCondition {
+            key: _,
+            condition_groups: _,
+            ref mut title,
+            title_locals: _,
+        } = self
+        {
+            *title = value;
+        }
+    }
+    pub fn add_title_local(&mut self, local: Option<Local>) {
+        if let Control::RuleCondition {
+            key: _,
+            condition_groups: _,
+            title: _,
+            ref mut title_locals,
+        } = self
+        {
+            match local {
+                Some(local) => match title_locals {
+                    Some(title_locals) => title_locals.push(local),
+                    None => *title_locals = Some(vec![local]),
+                },
+                None => (),
+            }
+        }
+    }
+    pub fn add_condition_groups(&mut self, conditions: Vec<ConditionGroup>) {
+        if let Control::RuleCondition {
+            key: _,
+            ref mut condition_groups,
+            title: _,
+            title_locals: _,
+        } = self
+        {
+            *condition_groups = conditions;
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionRule {

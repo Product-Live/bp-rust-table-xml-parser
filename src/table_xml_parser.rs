@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     table_structs::{
-        AttributeType, Category, Classification, Column, CommonAttributeRules, CommonColumn,
-        CommonSection, ConditionalFormatting, Control, DataType, DefaultStatus, Field,
-        GridSpecific, Identifier, Level, Local, MatrixField, MatrixSpecific, Metadata, OptionRule,
-        Partition, Screen, Section, SelectOption, SpecificAttributeRules, SpecificRules,
-        SpecificSection, Status, Suffix, Table,
+        Action, AttributeType, Category, Classification, Column, CommonAttributeRules,
+        CommonColumn, CommonSection, Condition, ConditionGroup, ConditionalFormatting, Control,
+        DataType, DefaultStatus, Field, GridSpecific, Identifier, Level, Local, MatrixField,
+        MatrixSpecific, Metadata, OptionRule, Partition, Screen, Section, SelectOption,
+        SpecificAttributeRules, SpecificRules, SpecificSection, Status, Suffix, Table, UseSuffix,
     },
     utils::get_attributes,
 };
@@ -49,7 +49,10 @@ impl TableXmlParser {
                     b"Table" => {
                         self.process_table(get_attributes(ev.attributes())?, &mut reader, &mut buf)?
                     }
-                    _ => (),
+                    name => Err(format!(
+                        "File must start with the Table element. The element name found is '{}'.",
+                        from_utf8(name)?
+                    ))?,
                 },
 
                 _ => (),
@@ -1214,7 +1217,7 @@ impl TableXmlParser {
         Ok(status)
     }
     fn process_status_rules(
-        &self,
+        &mut self,
         status: &mut Status,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1246,7 +1249,7 @@ impl TableXmlParser {
         Ok(())
     }
     fn process_status_rules_common(
-        &self,
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Vec<CommonAttributeRules>, Box<dyn Error>> {
@@ -1282,7 +1285,7 @@ impl TableXmlParser {
         Ok(common)
     }
     fn process_status_rules_specific(
-        &self,
+        &mut self,
         attributes: HashMap<String, String>,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1334,7 +1337,7 @@ impl TableXmlParser {
         }
     }
     fn process_controls(
-        &self,
+        &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
     ) -> Result<Vec<Control>, Box<dyn Error>> {
@@ -1638,6 +1641,16 @@ impl TableXmlParser {
                             None => (),
                         }
                     }
+                    b"Rule-Condition" => {
+                        match self.process_rule_condition(
+                            get_attributes(ev.attributes())?,
+                            reader,
+                            buf,
+                        )? {
+                            Some(control) => controls.push(control),
+                            None => (),
+                        }
+                    }
                     _ => (),
                 },
                 Event::End(ev) => match ev.name().as_ref() {
@@ -1651,6 +1664,228 @@ impl TableXmlParser {
             buf.clear();
         }
         Ok(controls)
+    }
+    fn process_rule_condition(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<Control>, Box<dyn Error>> {
+        let mut key: String = "UNKNOWN".to_owned();
+        match attributes.get("key") {
+            Some(key_s) => key = key_s.to_owned(),
+            None => (),
+        }
+        let mut control = Control::RuleCondition {
+            key: key,
+            condition_groups: vec![],
+            title: "UNKNOWN".to_owned(),
+            title_locals: None,
+        };
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Title" => control.set_title(self.handle_text(reader, buf)?),
+                    b"Title-Local" => {
+                        match get_attributes(ev.attributes())?.get("lang") {
+                            Some(lang) => control
+                                .add_title_local(self.handle_optional_local(lang, reader, buf)?),
+                            None => (), // Ignore if there is no lang attribute
+                        }
+                    }
+                    b"Conditions" => {
+                        control.add_condition_groups(
+                            self.process_rule_condition_conditions(reader, buf)?,
+                        );
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Rule-Condition" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+
+        Ok(Some(control))
+    }
+    fn process_rule_condition_conditions(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Vec<ConditionGroup>, Box<dyn Error>> {
+        let mut condition_groups: Vec<ConditionGroup> = vec![];
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Condition-Group" => {
+                        match self.process_rule_condition_condition_group(reader, buf)? {
+                            Some(condition_group) => condition_groups.push(condition_group),
+                            None => (),
+                        }
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Conditions" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(condition_groups)
+    }
+    fn process_rule_condition_condition_group(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<ConditionGroup>, Box<dyn Error>> {
+        let mut conditions: Vec<Condition> = vec![];
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) | Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Condition" => match self.process_rule_condition_condition_group_condition(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                    )? {
+                        Some(condition) => conditions.push(condition),
+                        None => (),
+                    },
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Condition-Group" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+        }
+        Ok(Some(ConditionGroup {
+            conditions: conditions,
+        }))
+    }
+    fn process_rule_condition_condition_group_condition(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<Condition>, Box<dyn Error>> {
+        match attributes.get("source") {
+            Some(source) => match attributes.get("operator") {
+                Some(operator) => match operator.as_bytes() {
+                    b"EMPTY" => Ok(Some(Condition::Empty {
+                        source: source.to_owned(),
+                    })),
+                    b"NOT_EMPTY" => Ok(Some(Condition::NotEmpty {
+                        source: source.to_owned(),
+                    })),
+                    b"CONTAINS" => match attributes.get("value") {
+                        Some(value) => Ok(Some(Condition::Contains {
+                            source: source.to_owned(),
+                            value: value.to_owned(),
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_CONTAINS_EMPTY_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator CONTAINS and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"EQUALS" => match attributes.get("value") {
+                        Some(value) => match attributes.get("use") {
+                            Some(use_suffix) => match use_suffix.as_bytes() {
+                                b"SUFFIX" => Ok(Some(Condition::Equals {
+                                    source: source.to_owned(),
+                                    value: value.to_owned(),
+                                    use_suffix: Some(UseSuffix::Suffix),
+                                })),
+                                b"SUFFIX_KEY" => Ok(Some(Condition::Equals {
+                                    source: source.to_owned(),
+                                    value: value.to_owned(),
+                                    use_suffix: Some(UseSuffix::SuffixKey),
+                                })),
+                                b"VALUE" => Ok(Some(Condition::Equals {
+                                    source: source.to_owned(),
+                                    value: value.to_owned(),
+                                    use_suffix: Some(UseSuffix::Value),
+                                })),
+                                name => {
+                                    self.add_warning(LogWarning {
+                                        code: "UNKNOWN_USE_VALUE".to_owned(),
+                                        message: format!("A condition with @source='{}' and @operator='EQUALS' has been found with @use='{}' that does not match SUFFIX | SUFFIX_KEY | VALUE. This condition has been ignored.", source, from_utf8(name)?),
+                                    });
+                                    Ok(None)
+                                }
+                            },
+                            None => Ok(Some(Condition::Equals {
+                                source: source.to_owned(),
+                                value: value.to_owned(),
+                                use_suffix: None,
+                            })),
+                        },
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_EQUALS_EMPTY_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator EQUALS and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"STARTS_WITH" => match attributes.get("value") {
+                        Some(value) => Ok(Some(Condition::StartsWith {
+                            source: source.to_owned(),
+                            value: value.to_owned(),
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_STARTS_WITH_EMPTY_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator STARTS_WITH and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"ENDS_WITH" => match attributes.get("value") {
+                        Some(value) => Ok(Some(Condition::EndsWith {
+                            source: source.to_owned(),
+                            value: value.to_owned(),
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_ENDS_WITH_EMPTY_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator ENDS_WITH and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    name => {
+                        self.add_warning(LogWarning {
+                            code: "UNKNOWN_RULE_CONDITION_OPERATOR".to_owned(),
+                            message: format!("Unknown operator '{}' has been found in a Rule-Condition > Condition. This condition has not been imported.", from_utf8(name)?)
+                        });
+                        Ok(None)
+                    }
+                },
+                None => {
+                    self.add_warning(LogWarning {
+                        code: "CONDITION_EMPTY_OPERATOR".to_owned(),
+                        message: format!("A condition with @source='{}' has been found without operator attribute. This condition has been ignored.", source)
+                    });
+                    Ok(None)
+                }
+            },
+            None => {
+                self.add_warning(LogWarning {
+                    code: "CONDITION_EMPTY_SOURCE".to_owned(),
+                    message: "A condition without source attribute has been found. This condition has been ignored.".to_owned()
+                });
+                Ok(None)
+            }
+        }
     }
 
     fn process_sections(
