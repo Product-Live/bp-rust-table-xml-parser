@@ -1104,7 +1104,7 @@ pub enum Action {
         value: String,
     },
     SetNumberTemplate {
-        precision: bool,
+        precision: usize,
         round: String,
         value: String,
     },

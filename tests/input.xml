@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Table key="PRODUCTS">
     <Title>Products</Title>
     <Title-Local lang="fra">Produits</Title-Local>
@@ -112,6 +113,49 @@
                     </Action>
                 </Rule>
             </Identifier>
+            <Field key="VOLUME_CM_3">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="WIDTH_CM" operator="NOT_EMPTY" />
+                            <Condition source="HEIGHT_CM" operator="NOT_EMPTY" />
+                            <Condition source="DEPTH_CM" operator="NOT_EMPTY" />
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_NUMBER">
+                        <Template precision="0" round="CEILING"><![CDATA[{{source("WIDTH_CM")}} * {{source("HEIGHT_CM")}} * {{source("DEPTH_CM")}}]]></Template>
+                    </Action>
+                </Rule>
+            </Field>
+            <Field key="DEEE_SCALE">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="IN">
+                                <Value>SUPPLIER-1</Value>
+                                <Value>SUPPLIER-2</Value>
+                            </Condition>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_SELECTABLE_OPTIONS">
+                        <Value>DEEE-1</Value>
+                        <Value>DEEE-2</Value>
+                    </Action>
+                </Rule>
+                <Rule priority="2">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="IN">
+                                <Value>SUPPLIER-3</Value>
+                            </Condition>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_SELECTABLE_OPTIONS">
+                        <Value>DEEE-1</Value>
+                        <Value>DEEE-3</Value>
+                    </Action>
+                </Rule>
+            </Field>
         </Formulas>
         <Conditional-Formattings>
             <Conditional-Formatting key="COMPLIANCE" level="PRODUCT">

@@ -15,14 +15,15 @@ use crate::{
     utils::get_attributes,
 };
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LogWarning {
-    code: String,
-    message: String,
+pub struct Log {
+    pub code: String,
+    pub message: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TableXmlParser {
     pub table: Table,
-    pub warnings: Vec<LogWarning>,
+    pub warnings: Vec<Log>,
+    pub errors: Vec<Log>,
 }
 
 impl TableXmlParser {
@@ -30,6 +31,7 @@ impl TableXmlParser {
         let mut xml_parser = TableXmlParser {
             table: Table::new(),
             warnings: vec![],
+            errors: vec![],
         };
         xml_parser.process_xml(path)?;
         Ok(xml_parser)
@@ -40,6 +42,7 @@ impl TableXmlParser {
         reader.trim_text(true);
 
         let mut buf = Vec::new();
+        let mut table_element_found = false;
 
         loop {
             match reader.read_event_into(&mut buf)? {
@@ -48,17 +51,46 @@ impl TableXmlParser {
 
                 Event::Start(ev) => match ev.name().as_ref() {
                     b"Table" => {
+                        table_element_found = true;
                         self.process_table(get_attributes(ev.attributes())?, &mut reader, &mut buf)?
                     }
-                    name => Err(format!(
-                        "File must start with the Table element. The element name found is '{}'.",
-                        from_utf8(name)?
-                    ))?,
+                    name => self.errors.push(Log {
+                        code: "WRONG_FIRST_ELEMENT".to_owned(),
+                        message:
+                        format!(
+                            "File must start with the Table element. The element name found is '{}'.",
+                            from_utf8(name)?),
+                    }),
                 },
+
+                Event::Empty(ev) => match ev.name().as_ref() {
+                    b"Table" => {
+                        self.errors.push(Log {
+                            code: "EMPTY_TABLE_ELEMENT".to_owned(),
+                            message: "The table element is empty".to_owned(),
+                        });
+                    },
+                    name => self.errors.push(Log {
+                        code: "WRONG_FIRST_ELEMENT".to_owned(),
+                        message:
+                        format!(
+                            "File must start with the Table element. The element name found is '{}'.",
+                            from_utf8(name)?),
+                    }),
+                }
 
                 _ => (),
             }
             buf.clear();
+        }
+
+        if table_element_found == false {
+            self.errors.push(Log {
+                code: "MISSING_ELEMENT_TABLE".to_owned(),
+                message:
+                    "The xml file must start with the Table. It's seams that the file is empty"
+                        .to_owned(),
+            });
         }
 
         Ok(())
@@ -675,7 +707,7 @@ impl TableXmlParser {
                         }
                         b"Options" => self.process_options(&mut field, reader, buf)?,
                         b"Suffixes" => self.process_suffixes(&mut field, reader, buf)?,
-                        name => self.add_warning(LogWarning {
+                        name => self.add_warning(Log {
                             code: "UNKNOWN_ELEMENT_NAME".to_owned(),
                             message: format!(
                                 "Unknown element name '{}' in Field",
@@ -1092,7 +1124,7 @@ impl TableXmlParser {
             buf.clear();
         }
         if conditions.len() == 0 {
-            self.add_warning(LogWarning {
+            self.add_warning(Log {
                 code: "".to_owned(),
                 message: "".to_owned(),
             });
@@ -1116,8 +1148,10 @@ impl TableXmlParser {
         match attributes.get("type") {
             Some(action_type) => match action_type.as_bytes() {
                 b"SET_TEXT" => Ok(Some(self.process_action_set_text(reader, buf)?)),
-                // b"SET_NUMBER" => {}
-                // b"SET_SELECTABLE_OPTIONS" => {}
+                b"SET_NUMBER" => Ok(Some(self.process_action_set_number(reader, buf)?)),
+                b"SET_SELECTABLE_OPTIONS" => Ok(Some(
+                    self.process_action_set_selectable_options(reader, buf)?,
+                )),
                 _ => Ok(None),
             },
             None => Ok(None),
@@ -1141,7 +1175,7 @@ impl TableXmlParser {
                             },
                             None => (),
                         }
-                        value = self.process_action_set_text_template_value(reader, buf)?
+                        value = self.process_action_template(reader, buf)?
                     }
                     _ => (),
                 },
@@ -1158,7 +1192,7 @@ impl TableXmlParser {
             value: value,
         })
     }
-    fn process_action_set_text_template_value(
+    fn process_action_template(
         &mut self,
         reader: &mut Reader<BufReader<File>>,
         buf: &mut Vec<u8>,
@@ -1167,8 +1201,96 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::CData(ev) => value = ev.escape()?.unescape()?.into_owned(),
+                Event::Text(ev) => value = ev.unescape()?.into_owned(),
                 Event::End(ev) => match ev.name().as_ref() {
                     b"Template" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(value)
+    }
+    fn process_action_set_number(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Action, Box<dyn Error>> {
+        let mut precision: usize = 0;
+        let mut round: String = "CEILING".to_owned();
+        let mut value = "".to_owned();
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Template" => {
+                        match get_attributes(ev.attributes())?.get("precision") {
+                            Some(precision_str) => match precision_str.parse() {
+                                Ok(precision_number) => precision = precision_number,
+                                Err(_) => (),
+                            },
+                            None => (),
+                        }
+                        match get_attributes(ev.attributes())?.get("round") {
+                            Some(round_str) => round = round_str.to_owned(),
+                            None => (),
+                        }
+                        value = self.process_action_template(reader, buf)?
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Action" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(Action::SetNumberTemplate {
+            precision: precision,
+            round: round,
+            value: value,
+        })
+    }
+    fn process_action_set_selectable_options(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Action, Box<dyn Error>> {
+        let mut values: Vec<String> = vec![];
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Value" => {
+                        match self.process_action_set_selectable_options_value(reader, buf)? {
+                            Some(value) => values.push(value),
+                            None => (),
+                        }
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Action" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(Action::SetSelectableOptions { values: values })
+    }
+    fn process_action_set_selectable_options_value(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<String>, Box<dyn Error>> {
+        let mut value: Option<String> = None;
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Text(ev) => value = Some(ev.unescape()?.into_owned()),
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Value" => break,
                     _ => (),
                 },
                 _ => (),
@@ -1993,7 +2115,7 @@ impl TableXmlParser {
                             value: value.to_owned(),
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_CONTAINS_EMPTY_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator CONTAINS and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2019,7 +2141,7 @@ impl TableXmlParser {
                                     use_suffix: Some(UseSuffix::Value),
                                 })),
                                 name => {
-                                    self.add_warning(LogWarning {
+                                    self.add_warning(Log {
                                         code: "UNKNOWN_USE_VALUE".to_owned(),
                                         message: format!("A condition with @source='{}' and @operator='EQUALS' has been found with @use='{}' that does not match SUFFIX | SUFFIX_KEY | VALUE. This condition has been ignored.", source, from_utf8(name)?),
                                     });
@@ -2033,7 +2155,7 @@ impl TableXmlParser {
                             })),
                         },
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_EQUALS_EMPTY_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator EQUALS and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2046,7 +2168,7 @@ impl TableXmlParser {
                             value: value.to_owned(),
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_STARTS_WITH_EMPTY_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator STARTS_WITH and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2059,7 +2181,7 @@ impl TableXmlParser {
                             value: value.to_owned(),
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_ENDS_WITH_EMPTY_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator ENDS_WITH and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2072,7 +2194,7 @@ impl TableXmlParser {
                             value: value,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_GREATER_THAN_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator GREATER_THAN and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2085,7 +2207,7 @@ impl TableXmlParser {
                             value: value,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_GREATER_THAN_OR_EQUAL_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator GREATER_THAN_OR_EQUAL and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2098,7 +2220,7 @@ impl TableXmlParser {
                             value: value,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_LESS_THAN_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator LESS_THAN and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2111,7 +2233,7 @@ impl TableXmlParser {
                             value: value,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_LESS_THAN_OR_EQUAL_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator LESS_THAN_OR_EQUAL and @source='{}' has been found without value attribute. This condition has been ignored.", source)
                                 });
@@ -2124,7 +2246,7 @@ impl TableXmlParser {
                             values: values,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_IN_MISSING_VALUES".to_owned(),
                                     message: format!("A condition with operator IN and @source='{}' has been found without Value attributes. This condition has been ignored.", source)
                                 });
@@ -2137,7 +2259,7 @@ impl TableXmlParser {
                             values: values,
                         })),
                         None => {
-                            self.add_warning(LogWarning {
+                            self.add_warning(Log {
                                     code: "CONDITION_NOT_IN_MISSING_VALUES".to_owned(),
                                     message: format!("A condition with operator NOT_IN and @source='{}' has been found without Value attributes. This condition has been ignored.", source)
                                 });
@@ -2145,7 +2267,7 @@ impl TableXmlParser {
                         }
                     },
                     name => {
-                        self.add_warning(LogWarning {
+                        self.add_warning(Log {
                             code: "UNKNOWN_RULE_CONDITION_OPERATOR".to_owned(),
                             message: format!("Unknown operator '{}' has been found in a Rule-Condition > Condition. This condition has not been imported.", from_utf8(name)?)
                         });
@@ -2153,7 +2275,7 @@ impl TableXmlParser {
                     }
                 },
                 None => {
-                    self.add_warning(LogWarning {
+                    self.add_warning(Log {
                         code: "CONDITION_EMPTY_OPERATOR".to_owned(),
                         message: format!("A condition with @source='{}' has been found without operator attribute. This condition has been ignored.", source)
                     });
@@ -2161,7 +2283,7 @@ impl TableXmlParser {
                 }
             },
             None => {
-                self.add_warning(LogWarning {
+                self.add_warning(Log {
                     code: "CONDITION_EMPTY_SOURCE".to_owned(),
                     message: "A condition without source attribute has been found. This condition has been ignored.".to_owned()
                 });
@@ -2736,7 +2858,7 @@ impl TableXmlParser {
                         buf.clear();
                     },
                     name => {
-                        self.add_warning(LogWarning {
+                        self.add_warning(Log {
                             code: "UNEXPECTED_ELEMENT_NAME".to_owned(),
                             message: format!(
                                 "Unexpected element name found in a Value element of a Condition: '{}'.",
@@ -2766,7 +2888,7 @@ impl TableXmlParser {
                         match reader.read_event_into(buf)? {
                             Event::Text(ev) => match ev.unescape()?.into_owned().parse() {
                                 Ok(v) => value = Some(v),
-                                Err(_) => self.add_warning(LogWarning {
+                                Err(_) => self.add_warning(Log {
                                     code: "VALUE_INVALID_DATA_TYPE".to_owned(),
                                     message: "In an element Condition > Value the value expected is a number but the value found is not a number.".to_owned(),
                                 }),
@@ -2803,7 +2925,7 @@ impl TableXmlParser {
                         buf.clear();
                     },
                     name => {
-                        self.add_warning(LogWarning {
+                        self.add_warning(Log {
                             code: "UNEXPECTED_ELEMENT_NAME".to_owned(),
                             message: format!(
                                 "Unexpected element name found in a Value element of a Condition: '{}'.",
@@ -2824,7 +2946,7 @@ impl TableXmlParser {
             Ok(None)
         }
     }
-    fn add_warning(&mut self, log: LogWarning) {
+    fn add_warning(&mut self, log: Log) {
         self.warnings.push(log)
     }
 }

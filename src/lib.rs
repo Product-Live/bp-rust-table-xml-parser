@@ -14,6 +14,24 @@ mod tests {
     use crate::table_xml_writer::TableXmlWriter;
 
     #[test]
+    fn empty_file() {
+        let table_xml_parser = TableXmlParser::read("./tests/MISSING_ELEMENT_TABLE.xml").unwrap();
+        assert_eq!(table_xml_parser.errors[0].code, "MISSING_ELEMENT_TABLE");
+    }
+
+    #[test]
+    fn file_without_table_element() {
+        let table_xml_parser = TableXmlParser::read("./tests/WRONG_FIRST_ELEMENT.xml").unwrap();
+        assert_eq!(table_xml_parser.errors[0].code, "WRONG_FIRST_ELEMENT");
+    }
+
+    #[test]
+    fn file_with_empty_table_element() {
+        let table_xml_parser = TableXmlParser::read("./tests/EMPTY_TABLE_ELEMENT.xml").unwrap();
+        assert_eq!(table_xml_parser.errors[0].code, "EMPTY_TABLE_ELEMENT");
+    }
+
+    #[test]
     fn xml_parser() {
         let expected = Table {
             key: "PRODUCTS".to_owned(),
@@ -134,7 +152,8 @@ mod tests {
         match TableXmlParser::read("./tests/input.xml") {
             Ok(table_xml_parser) => {
                 println!("File parsed");
-                println!("{:#?}", table_xml_parser.warnings);
+                println!("{:#?}", table_xml_parser.warnings.len());
+                println!("{:#?}", table_xml_parser.errors.len());
                 println!("{:#?}", table_xml_parser.table.schema.formulas);
                 // assert_eq!(table, expected)
                 assert!(false)
