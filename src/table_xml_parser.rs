@@ -7,9 +7,10 @@ use crate::{
     table_structs::{
         Action, AttributeType, Category, Classification, Column, CommonAttributeRules,
         CommonColumn, CommonSection, Condition, ConditionGroup, ConditionalFormatting, Control,
-        DataType, DefaultStatus, Field, GridSpecific, Identifier, Level, Local, MatrixField,
-        MatrixSpecific, Metadata, OptionRule, Partition, Screen, Section, SelectOption,
-        SpecificAttributeRules, SpecificRules, SpecificSection, Status, Suffix, Table, UseSuffix,
+        DataType, DefaultStatus, Field, Formula, GridSpecific, Identifier, Level, Local,
+        MatrixField, MatrixSpecific, Metadata, OptionRule, Partition, Rule, Screen, Section,
+        SelectOption, SpecificAttributeRules, SpecificRules, SpecificSection, Status, Suffix,
+        Table, UseSuffix,
     },
     utils::get_attributes,
 };
@@ -134,6 +135,7 @@ impl TableXmlParser {
                     b"Identifiers" => self.process_identifiers(reader, buf)?,
                     b"Classifications" => self.process_classifications(reader, buf)?,
                     b"Fields" => self.process_fields(reader, buf)?,
+                    b"Formulas" => self.process_formulas(reader, buf)?,
                     b"Matrix" => self.process_matrix(reader, buf)?,
                     b"Conditional-Formattings" => {
                         self.process_conditional_formattings(reader, buf)?
@@ -974,6 +976,208 @@ impl TableXmlParser {
         Ok(())
     }
 
+    fn process_formulas(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Identifier" => self.process_formula(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                        AttributeType::Identifier,
+                    )?,
+                    b"Classification" => self.process_formula(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                        AttributeType::Classification,
+                    )?,
+                    b"Field" => self.process_formula(
+                        get_attributes(ev.attributes())?,
+                        reader,
+                        buf,
+                        AttributeType::Field,
+                    )?,
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Formulas" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+    fn process_formula(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+        attribute_type: AttributeType,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut key = "UNKNOWN".to_owned();
+        match attributes.get("key") {
+            Some(key_str) => key = key_str.to_owned(),
+            None => (),
+        }
+        let mut formula = Formula {
+            attribute_type: attribute_type,
+            key: key,
+            rules: vec![],
+        };
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Rule" => {
+                        match self.process_rule(get_attributes(ev.attributes())?, reader, buf)? {
+                            Some(rule) => formula.rules.push(rule),
+                            None => (),
+                        }
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Identifier" | b"Classification" | b"Field" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        if formula.rules.len() > 0 {
+            self.table.schema.formulas.push(formula);
+        }
+        Ok(())
+    }
+    fn process_rule(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<Rule>, Box<dyn Error>> {
+        let mut priority: usize = 0;
+        match attributes.get("priority") {
+            Some(priority_attr) => match priority_attr.parse::<usize>() {
+                Ok(p) => priority = p,
+                Err(_) => todo!(),
+            },
+            None => (),
+        }
+        let mut conditions: Vec<ConditionGroup> = vec![];
+        let mut action: Option<Action> = None;
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Conditions" => {
+                        conditions = self.process_rule_condition_conditions(reader, buf)?
+                    }
+                    b"Action" => {
+                        action =
+                            self.process_action(get_attributes(ev.attributes())?, reader, buf)?
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Rule" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        if conditions.len() == 0 {
+            self.add_warning(LogWarning {
+                code: "".to_owned(),
+                message: "".to_owned(),
+            });
+            return Ok(None);
+        }
+        match action {
+            Some(action) => Ok(Some(Rule {
+                priority: priority,
+                conditions: conditions,
+                action: action,
+            })),
+            None => Ok(None),
+        }
+    }
+    fn process_action(
+        &mut self,
+        attributes: HashMap<String, String>,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<Action>, Box<dyn Error>> {
+        match attributes.get("type") {
+            Some(action_type) => match action_type.as_bytes() {
+                b"SET_TEXT" => Ok(Some(self.process_action_set_text(reader, buf)?)),
+                // b"SET_NUMBER" => {}
+                // b"SET_SELECTABLE_OPTIONS" => {}
+                _ => Ok(None),
+            },
+            None => Ok(None),
+        }
+    }
+    fn process_action_set_text(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Action, Box<dyn Error>> {
+        let mut trim_spaces = false;
+        let mut value = "".to_owned();
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Template" => {
+                        match get_attributes(ev.attributes())?.get("trim-spaces") {
+                            Some(trim_spaces_str) => match trim_spaces_str.as_bytes() {
+                                b"true" => trim_spaces = true,
+                                _ => (),
+                            },
+                            None => (),
+                        }
+                        value = self.process_action_set_text_template_value(reader, buf)?
+                    }
+                    _ => (),
+                },
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Action" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(Action::SetTextTemplate {
+            trim_spaces: trim_spaces,
+            value: value,
+        })
+    }
+    fn process_action_set_text_template_value(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<String, Box<dyn Error>> {
+        let mut value = "".to_owned();
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::CData(ev) => value = ev.escape()?.unescape()?.into_owned(),
+                Event::End(ev) => match ev.name().as_ref() {
+                    b"Template" => break,
+                    _ => (),
+                },
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(value)
+    }
+
     fn process_conditional_formattings(
         &mut self,
         reader: &mut Reader<BufReader<File>>,
@@ -1783,7 +1987,7 @@ impl TableXmlParser {
                     b"NOT_EMPTY" => Ok(Some(Condition::NotEmpty {
                         source: source.to_owned(),
                     })),
-                    b"CONTAINS" => match attributes.get("value") {
+                    b"CONTAINS" => match self.handle_value_text(reader, buf)? {
                         Some(value) => Ok(Some(Condition::Contains {
                             source: source.to_owned(),
                             value: value.to_owned(),
@@ -1796,7 +2000,7 @@ impl TableXmlParser {
                             Ok(None)
                         }
                     },
-                    b"EQUALS" => match attributes.get("value") {
+                    b"EQUALS" => match self.handle_value_text(reader, buf)? {
                         Some(value) => match attributes.get("use") {
                             Some(use_suffix) => match use_suffix.as_bytes() {
                                 b"SUFFIX" => Ok(Some(Condition::Equals {
@@ -1836,7 +2040,7 @@ impl TableXmlParser {
                             Ok(None)
                         }
                     },
-                    b"STARTS_WITH" => match attributes.get("value") {
+                    b"STARTS_WITH" => match self.handle_value_text(reader, buf)? {
                         Some(value) => Ok(Some(Condition::StartsWith {
                             source: source.to_owned(),
                             value: value.to_owned(),
@@ -1849,7 +2053,7 @@ impl TableXmlParser {
                             Ok(None)
                         }
                     },
-                    b"ENDS_WITH" => match attributes.get("value") {
+                    b"ENDS_WITH" => match self.handle_value_text(reader, buf)? {
                         Some(value) => Ok(Some(Condition::EndsWith {
                             source: source.to_owned(),
                             value: value.to_owned(),
@@ -1858,6 +2062,84 @@ impl TableXmlParser {
                             self.add_warning(LogWarning {
                                     code: "CONDITION_ENDS_WITH_EMPTY_VALUE_ATTRIBUTE".to_owned(),
                                     message: format!("A condition with operator ENDS_WITH and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"GREATER_THAN" => match self.handle_value_number(reader, buf)? {
+                        Some(value) => Ok(Some(Condition::GreaterThan {
+                            source: source.to_owned(),
+                            value: value,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_GREATER_THAN_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator GREATER_THAN and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"GREATER_THAN_OR_EQUAL" => match self.handle_value_number(reader, buf)? {
+                        Some(value) => Ok(Some(Condition::GreaterThanOrEqual {
+                            source: source.to_owned(),
+                            value: value,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_GREATER_THAN_OR_EQUAL_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator GREATER_THAN_OR_EQUAL and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"LESS_THAN" => match self.handle_value_number(reader, buf)? {
+                        Some(value) => Ok(Some(Condition::LessThan {
+                            source: source.to_owned(),
+                            value: value,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_LESS_THAN_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator LESS_THAN and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"LESS_THAN_OR_EQUAL" => match self.handle_value_number(reader, buf)? {
+                        Some(value) => Ok(Some(Condition::LessThanOrEqual {
+                            source: source.to_owned(),
+                            value: value,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_LESS_THAN_OR_EQUAL_VALUE_ATTRIBUTE".to_owned(),
+                                    message: format!("A condition with operator LESS_THAN_OR_EQUAL and @source='{}' has been found without value attribute. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"IN" => match self.handle_values(reader, buf)? {
+                        Some(values) => Ok(Some(Condition::In {
+                            source: source.to_owned(),
+                            values: values,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_IN_MISSING_VALUES".to_owned(),
+                                    message: format!("A condition with operator IN and @source='{}' has been found without Value attributes. This condition has been ignored.", source)
+                                });
+                            Ok(None)
+                        }
+                    },
+                    b"NOT_IN" => match self.handle_values(reader, buf)? {
+                        Some(values) => Ok(Some(Condition::In {
+                            source: source.to_owned(),
+                            values: values,
+                        })),
+                        None => {
+                            self.add_warning(LogWarning {
+                                    code: "CONDITION_NOT_IN_MISSING_VALUES".to_owned(),
+                                    message: format!("A condition with operator NOT_IN and @source='{}' has been found without Value attributes. This condition has been ignored.", source)
                                 });
                             Ok(None)
                         }
@@ -2435,6 +2717,112 @@ impl TableXmlParser {
             buf.clear();
         }
         Ok(number)
+    }
+    fn handle_value_text(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<String>, Box<dyn Error>> {
+        let mut value: Option<String> = None;
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Value" => loop {
+                        match reader.read_event_into(buf)? {
+                            Event::Text(ev) => value = Some(ev.unescape()?.into_owned()),
+                            Event::End(_) => break,
+                            _ => (),
+                        }
+                        buf.clear();
+                    },
+                    name => {
+                        self.add_warning(LogWarning {
+                            code: "UNEXPECTED_ELEMENT_NAME".to_owned(),
+                            message: format!(
+                                "Unexpected element name found in a Value element of a Condition: '{}'.",
+                                from_utf8(&name)?
+                            ),
+                        });
+                        break;
+                    }
+                },
+                Event::End(_) => break,
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(value)
+    }
+    fn handle_value_number(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<usize>, Box<dyn Error>> {
+        let mut value: Option<usize> = None;
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Value" => loop {
+                        match reader.read_event_into(buf)? {
+                            Event::Text(ev) => match ev.unescape()?.into_owned().parse() {
+                                Ok(v) => value = Some(v),
+                                Err(_) => self.add_warning(LogWarning {
+                                    code: "VALUE_INVALID_DATA_TYPE".to_owned(),
+                                    message: "In an element Condition > Value the value expected is a number but the value found is not a number.".to_owned(),
+                                }),
+                            },
+                            Event::End(_) => break,
+                            _ => (),
+                        }
+                        buf.clear();
+                    },
+                    _ => (),
+                },
+                Event::End(_) => break,
+                _ => (),
+            }
+            buf.clear();
+        }
+        Ok(value)
+    }
+    fn handle_values(
+        &mut self,
+        reader: &mut Reader<BufReader<File>>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<Vec<String>>, Box<dyn Error>> {
+        let mut values: Vec<String> = vec![];
+        loop {
+            match reader.read_event_into(buf)? {
+                Event::Start(ev) => match ev.name().as_ref() {
+                    b"Value" => loop {
+                        match reader.read_event_into(buf)? {
+                            Event::Text(ev) => values.push(ev.unescape()?.into_owned()),
+                            Event::End(_) => break,
+                            _ => (),
+                        }
+                        buf.clear();
+                    },
+                    name => {
+                        self.add_warning(LogWarning {
+                            code: "UNEXPECTED_ELEMENT_NAME".to_owned(),
+                            message: format!(
+                                "Unexpected element name found in a Value element of a Condition: '{}'.",
+                                from_utf8(&name)?
+                            ),
+                        });
+                        break;
+                    }
+                },
+                Event::End(_) => break,
+                _ => (),
+            }
+            buf.clear();
+        }
+        if values.len() > 0 {
+            Ok(Some(values))
+        } else {
+            Ok(None)
+        }
     }
     fn add_warning(&mut self, log: LogWarning) {
         self.warnings.push(log)

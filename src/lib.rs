@@ -119,6 +119,7 @@ mod tests {
                     suffixes: None,
                     options: None,
                 }],
+                formulas: vec![],
                 matrix: Matrix {
                     common: vec![],
                     specifics: vec![],
@@ -130,10 +131,11 @@ mod tests {
         };
         println!("Starting parse xml");
 
-        match TableXmlParser::read("./tests/fnac.xml") {
+        match TableXmlParser::read("./tests/input.xml") {
             Ok(table_xml_parser) => {
                 println!("File parsed");
                 println!("{:#?}", table_xml_parser.warnings);
+                println!("{:#?}", table_xml_parser.table.schema.formulas);
                 // assert_eq!(table, expected)
                 assert!(false)
             }

@@ -98,7 +98,21 @@
                 <Field key="STORAGE" />
             </Specific>
         </Matrix>
-        <Formulas />
+        <Formulas>
+            <Identifier key="SUPPLIER-SUPPLIER_REF">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="NOT_EMPTY" />
+                            <Condition source="SUPPLIER_REF" operator="NOT_EMPTY" />
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_TEXT">
+                        <Template trim-spaces="true"><![CDATA[{{source("SUPPLIER","key")}}-{{source("SUPPLIER_REF")}}]]></Template>
+                    </Action>
+                </Rule>
+            </Identifier>
+        </Formulas>
         <Conditional-Formattings>
             <Conditional-Formatting key="COMPLIANCE" level="PRODUCT">
                 <Title>Compliance</Title>

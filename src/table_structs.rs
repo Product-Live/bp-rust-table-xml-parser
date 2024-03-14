@@ -27,11 +27,12 @@ impl Table {
                 identifiers: vec![],
                 classifications: vec![],
                 fields: vec![],
-                conditional_formattings: vec![],
+                formulas: vec![],
                 matrix: Matrix {
                     common: vec![],
                     specifics: vec![],
                 },
+                conditional_formattings: vec![],
                 sections: vec![],
                 screens: vec![],
             },
@@ -73,6 +74,7 @@ pub struct Schema {
     pub identifiers: Vec<Identifier>,
     pub classifications: Vec<Classification>,
     pub fields: Vec<Field>,
+    pub formulas: Vec<Formula>,
     pub matrix: Matrix,
     pub conditional_formattings: Vec<ConditionalFormatting>,
     pub sections: Vec<Section>,
@@ -1040,6 +1042,10 @@ pub enum Condition {
         value: String,
         use_suffix: Option<UseSuffix>,
     },
+    NotEquals {
+        source: String,
+        value: String,
+    },
     StartsWith {
         source: String,
         value: String,
@@ -1083,7 +1089,7 @@ pub enum UseSuffix {
 pub struct Formula {
     pub attribute_type: AttributeType,
     pub key: String,
-    pub rules: Vec<Rules>,
+    pub rules: Vec<Rule>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rule {
@@ -1093,10 +1099,21 @@ pub struct Rule {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Action {
-    SetTextTemplate { trim_spaces: bool },
-    SetNumberTemplate { precision: bool, round: String },
-    SetSelectableOptions { values: Vec<String> },
-    SetOption { value: String },
+    SetTextTemplate {
+        trim_spaces: bool,
+        value: String,
+    },
+    SetNumberTemplate {
+        precision: bool,
+        round: String,
+        value: String,
+    },
+    SetSelectableOptions {
+        values: Vec<String>,
+    },
+    SetOption {
+        value: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
