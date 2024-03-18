@@ -859,6 +859,13 @@ impl TableXmlParser {
             .get("key")
             .unwrap_or(&"UNKNOWN".to_owned())
             .to_owned();
+        match attributes.get("default") {
+            Some(default) => match default.as_bytes() {
+                b"true" => suffix.default = Some(true),
+                _ => ()
+            },
+            None => (),
+        }
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => {

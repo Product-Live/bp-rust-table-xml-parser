@@ -418,6 +418,24 @@ pub enum DataType {
     Image,
     Attachment,
 }
+impl DataType {
+    pub fn to_string(&self) -> String {
+        match self {
+            DataType::SingleLineText => "SINGLE-LINE-TEXT".to_owned(),
+            DataType::LongText => "LONG-TEXT".to_owned(),
+            DataType::HtmlText => "HTML-TEXT".to_owned(),
+            DataType::Number => "NUMBER".to_owned(),
+            DataType::SingleSelect => "SINGLE-SELECT".to_owned(),
+            DataType::MultipleSelect => "MULTIPLE-SELECT".to_owned(),
+            DataType::MultipleSelectQuantified => "MULTIPLE-SELECT-QUANTIFIED".to_owned(),
+            DataType::MultipleSelectQuantifiedWithComments => "MULTIPLE-SELECT-QUANTIFIED-WITH-COMMENTS".to_owned(),
+            DataType::Date => "DATE".to_owned(),
+            DataType::DateTime => "DATE-TIME".to_owned(),
+            DataType::Image => "IMAGE".to_owned(),
+            DataType::Attachment => "ATTACHMENT".to_owned(),
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     pub key: String,
@@ -448,6 +466,7 @@ pub struct SelectOption {
 pub struct Suffix {
     pub key: String,
     pub title: String,
+    pub default: Option<bool>,
     pub description: Option<String>,
     pub title_locals: Option<Vec<Local>>,
     pub description_locals: Option<Vec<Local>>,
@@ -568,6 +587,7 @@ impl Suffix {
         Suffix {
             key: "UNKNOWN".to_owned(),
             title: "UNKNOWN".to_owned(),
+            default: None,
             description: None,
             title_locals: None,
             description_locals: None,
