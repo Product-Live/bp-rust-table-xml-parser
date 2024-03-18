@@ -6,7 +6,7 @@ use std::io::{BufWriter, Cursor, Write};
 use quick_xml::Error;
 
 
-use crate::table_structs::{DataType, Table};
+use crate::table_structs::{CommonColumn, DataType, Table};
 
 pub struct TableXmlWriter {}
 
@@ -119,7 +119,7 @@ impl TableXmlWriter {
                             .create_element("Partitions")
                             .write_inner_content::<_,Error>(|writer| {
                                 for partition in table.schema.partitions.iter() {
-                                    let _ = writer
+                                    writer
                                         .create_element("Partition")
                                         .with_attribute(("key", partition.key.to_owned().as_str()))
                                         .write_inner_content::<_,Error>(|writer| {
@@ -619,6 +619,286 @@ impl TableXmlWriter {
                                         })?;
                                 }
                                 Ok(())
+                            })?
+                            .create_element("Sections")
+                            .write_inner_content::<_,Error>(|writer| {
+                                for section in table.schema.sections.iter() {
+                                    writer
+                                        .create_element("Section")
+                                        .with_attribute(("key", section.key.to_owned().as_str()))
+                                        .write_inner_content::<_,Error>(|writer| {
+                                            writer
+                                                .create_element("Title")
+                                                .write_text_content(BytesText::new(section.title.to_owned().as_str()))?;
+                                            match &section.description {
+                                                None => (),
+                                                Some(description) => {
+                                                    writer
+                                                        .create_element("Description")
+                                                        .write_text_content(BytesText::new(description.to_owned().as_str()))?;
+                                                }
+                                            }
+                                            match &section.title_locals {
+                                                None => (),
+                                                Some(locals) => {
+                                                    for local in locals.iter() {
+                                                        writer
+                                                            .create_element("Title-Local")
+                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            match &section.description_locals {
+                                                None => (),
+                                                Some(locals) => {
+                                                    for local in locals.iter() {
+                                                        writer
+                                                            .create_element("Description-Local")
+                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            match &section.metadata {
+                                                None => (),
+                                                Some(metadata) => {
+                                                    for meta in metadata.iter() {
+                                                        writer
+                                                            .create_element("Metadata")
+                                                            .with_attribute(("key", meta.key.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(meta.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            Ok(())
+                                        })?;
+                                }
+                                Ok(())
+                            })?
+                            .create_element("Screens")
+                            .write_inner_content::<_,Error>(|writer| {
+                                for screen in table.schema.screens.iter() {
+                                    writer
+                                        .create_element("Screen")
+                                        .with_attribute(("key", screen.key.to_owned().as_str()))
+                                        .write_inner_content::<_,Error>(|writer| {
+                                            writer
+                                                .create_element("Title")
+                                                .write_text_content(BytesText::new(screen.title.to_owned().as_str()))?
+                                                .create_element("Position")
+                                                .write_text_content(BytesText::new(screen.position.to_string().as_str()))?;
+                                            match &screen.description {
+                                                None => (),
+                                                Some(description) => {
+                                                    writer
+                                                        .create_element("Description")
+                                                        .write_text_content(BytesText::new(description.to_owned().as_str()))?;
+                                                }
+                                            }
+                                            match &screen.title_locals {
+                                                None => (),
+                                                Some(locals) => {
+                                                    for local in locals.iter() {
+                                                        writer
+                                                            .create_element("Title-Local")
+                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            match &screen.description_locals {
+                                                None => (),
+                                                Some(locals) => {
+                                                    for local in locals.iter() {
+                                                        writer
+                                                            .create_element("Description-Local")
+                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            match &screen.metadata {
+                                                None => (),
+                                                Some(metadata) => {
+                                                    for meta in metadata.iter() {
+                                                        writer
+                                                            .create_element("Metadata")
+                                                            .with_attribute(("key", meta.key.to_owned().as_str()))
+                                                            .write_text_content(BytesText::new(meta.value.to_owned().as_str()))?;
+                                                    }
+                                                }
+                                            }
+                                            writer
+                                                .create_element("Grid")
+                                                .write_inner_content::<_, Error>(|writer| {
+                                                    writer
+                                                        .create_element("Line-Height")
+                                                        .write_text_content(BytesText::new(screen.grid.line_height.to_owned().as_str()))?
+                                                        .create_element("Common")
+                                                        .write_inner_content::<_,Error>(|writer| {
+                                                            for section in screen.grid.common.iter() {
+                                                                writer
+                                                                    .create_element("Section")
+                                                                    .with_attribute(("key", section.key.to_owned().as_str()))
+                                                                    .with_attribute(("position", section.position.to_string().as_str()))
+                                                                    .write_inner_content::<_, Error>(|writer| {
+                                                                        for column in section.columns.iter() {
+                                                                            match column {
+                                                                                CommonColumn::ColumnIdentifier(column) => {
+                                                                                    let mut column_el = writer.create_element("Column-Identifier");
+                                                                                    column_el = column_el.with_attribute(("key", column.key.to_owned().as_str()));
+                                                                                    column_el = column_el.with_attribute(("position", column.position.to_string().as_str()));
+                                                                                    match &column.fixed {
+                                                                                        Some(fixed) => if fixed.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("fixed", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.width {
+                                                                                        Some(width) => if width != "" && width != "MEDIUM" {
+                                                                                            column_el = column_el.with_attribute(("width", width.to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.read_only {
+                                                                                        Some(read_only) => if read_only.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("read-only", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    column_el.write_empty()?;
+                                                                                },
+                                                                                CommonColumn::ColumnClassification(column) =>  {
+                                                                                    let mut column_el = writer.create_element("Column-Classification");
+                                                                                    column_el = column_el.with_attribute(("key", column.key.to_owned().as_str()));
+                                                                                    column_el = column_el.with_attribute(("position", column.position.to_string().as_str()));
+                                                                                    match &column.fixed {
+                                                                                        Some(fixed) => if fixed.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("fixed", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.width {
+                                                                                        Some(width) => if width != "" && width != "MEDIUM" {
+                                                                                            column_el = column_el.with_attribute(("width", width.to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.read_only {
+                                                                                        Some(read_only) => if read_only.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("read-only", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    column_el.write_empty()?;
+                                                                                },
+                                                                                CommonColumn::ColumnConditionalFormatting(column) => {
+                                                                                    let mut column_el = writer.create_element("Column-Conditional-Formatting");
+                                                                                    column_el = column_el.with_attribute(("key", column.key.to_owned().as_str()));
+                                                                                    column_el = column_el.with_attribute(("position", column.position.to_string().as_str()));
+                                                                                    match &column.fixed {
+                                                                                        Some(fixed) => if fixed.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("fixed", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.width {
+                                                                                        Some(width) => if width != "" && width != "MEDIUM" {
+                                                                                            column_el = column_el.with_attribute(("width", width.to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.read_only {
+                                                                                        Some(read_only) => if read_only.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("read-only", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    column_el.write_empty()?;
+                                                                                },
+                                                                                CommonColumn::ColumnField(column) => {
+                                                                                    let mut column_el = writer.create_element("Column-Field");
+                                                                                    column_el = column_el.with_attribute(("key", column.key.to_owned().as_str()));
+                                                                                    column_el = column_el.with_attribute(("position", column.position.to_string().as_str()));
+                                                                                    match &column.fixed {
+                                                                                        Some(fixed) => if fixed.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("fixed", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.width {
+                                                                                        Some(width) => if width != "" && width != "MEDIUM" {
+                                                                                            column_el = column_el.with_attribute(("width", width.to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.read_only {
+                                                                                        Some(read_only) => if read_only.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("read-only", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    column_el.write_empty()?;
+                                                                                },
+                                                                            }
+                                                                        }
+                                                                        Ok(())
+                                                                    })?;
+                                                            }
+                                                            Ok(())
+                                                        })?;
+                                                        for specific in screen.grid.specifics.iter() {
+                                                            writer
+                                                                .create_element("Specific")
+                                                                .with_attribute(("classification", specific.classification.to_owned().as_str()))
+                                                                .with_attribute(("category", specific.category.to_owned().as_str()))
+                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                    for section in specific.sections.iter() {
+                                                                        writer
+                                                                            .create_element("Section")
+                                                                            .with_attribute(("key", section.key.to_owned().as_str()))
+                                                                            .with_attribute(("position", section.position.to_string().as_str()))
+                                                                            .write_inner_content::<_, Error>(|writer| {
+                                                                                for column in section.columns.iter() {
+                                                                                    let mut column_el = writer
+                                                                                        .create_element("Column-Field")
+                                                                                        .with_attribute(("key", column.key.to_owned().as_str()))
+                                                                                        .with_attribute(("position", column.key.to_owned().as_str()));
+                                                                                    match &column.fixed {
+                                                                                        Some(fixed) => {
+                                                                                            if fixed.to_owned() == true {
+                                                                                                column_el = column_el.with_attribute(("fixed", "true".to_owned().as_str()));
+                                                                                            }
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.width {
+                                                                                        Some(width) => if width != "" && width != "MEDIUM" {
+                                                                                            column_el = column_el.with_attribute(("width", width.to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    match &column.read_only {
+                                                                                        Some(read_only) => if read_only.to_owned() {
+                                                                                            column_el = column_el.with_attribute(("read-only", "true".to_owned().as_str()));
+                                                                                        },
+                                                                                        None => (),
+                                                                                    }
+                                                                                    column_el.write_empty()?;
+                                                                                }
+                                                                                Ok(())
+                                                                            })?;
+                                                                    }
+                                                                    Ok(())
+                                                                })?;
+                                                        }
+                                                    Ok(())
+                                                })?;
+                                            Ok(())
+                                        })?;
+                                }
+                                Ok(())
                             })?;
                         Ok(())
                     })?;
@@ -635,7 +915,7 @@ mod tests {
 
     #[test]
     fn write_file() {
-        let table_xml_parser = TableXmlParser::read("./tests/input.xml").unwrap();
+        let table_xml_parser = TableXmlParser::read("./tests/fnac.xml").unwrap();
         match TableXmlWriter::write(&table_xml_parser.table, "./tests/output.xml") {
             Ok(_) => assert!(true),
             Err(_) => assert!(false)
