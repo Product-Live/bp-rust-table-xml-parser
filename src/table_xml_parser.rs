@@ -46,7 +46,6 @@ impl TableXmlParser {
 
         loop {
             match reader.read_event_into(&mut buf)? {
-                // Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
                 Event::Eof => break,
 
                 Event::Start(ev) => match ev.name().as_ref() {
