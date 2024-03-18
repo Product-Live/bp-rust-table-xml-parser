@@ -589,6 +589,36 @@ impl TableXmlWriter {
                                         })?;
                                 }
                                 Ok(())
+                            })?
+                            .create_element("Matrix")
+                            .write_inner_content::<_, Error>(|writer| {
+                                writer
+                                    .create_element("Common")
+                                    .write_inner_content::<_, Error>(|writer| {
+                                        for field in table.schema.matrix.common.iter() {
+                                            writer
+                                                .create_element("Field")
+                                                .with_attribute(("key", field.key.to_owned().as_str()))
+                                                .write_empty()?;
+                                        }
+                                        Ok(())
+                                    })?;
+                                for specific in table.schema.matrix.specifics.iter() {
+                                    writer
+                                        .create_element("Specific")
+                                        .with_attribute(("classification", specific.classification.to_owned().as_str()))
+                                        .with_attribute(("category", specific.category.to_owned().as_str()))
+                                        .write_inner_content::<_, Error>(|writer| {
+                                            for field in specific.fields.iter() {
+                                                writer
+                                                    .create_element("Field")
+                                                    .with_attribute(("key", field.key.to_owned().as_str()))
+                                                    .write_empty()?;
+                                            }
+                                            Ok(())
+                                        })?;
+                                }
+                                Ok(())
                             })?;
                         Ok(())
                     })?;

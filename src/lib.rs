@@ -154,7 +154,7 @@ mod tests {
                 println!("File parsed");
                 println!("{:#?}", table_xml_parser.warnings.len());
                 println!("{:#?}", table_xml_parser.errors.len());
-                println!("{:#?}", table_xml_parser.table.schema.formulas);
+                println!("{:#?}", table_xml_parser.table.schema.matrix);
                 // assert_eq!(table, expected)
                 assert!(false)
             }
