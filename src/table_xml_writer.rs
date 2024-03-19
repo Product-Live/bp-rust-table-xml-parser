@@ -5,7 +5,7 @@ use quick_xml::Error;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 
-use crate::table_structs::{AttributeType, CommonColumn, DataType, Table};
+use crate::table_structs::{AttributeType, CommonColumn, Condition, ConditionGroup, Control, DataType, Table};
 
 pub struct TableXmlWriter {}
 
@@ -795,19 +795,25 @@ impl TableXmlWriter {
                                                                                             writer
                                                                                                 .create_element("Identifier")
                                                                                                 .with_attribute(("key", attribute.key.to_owned().as_str()))
-                                                                                                .write_empty()?;
+                                                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                                                    Self::process_controls(writer, &attribute.controls)
+                                                                                                })?;
                                                                                         },
                                                                                         AttributeType::Classification => {
                                                                                             writer
                                                                                                 .create_element("Classification")
                                                                                                 .with_attribute(("key", attribute.key.to_owned().as_str()))
-                                                                                                .write_empty()?;
+                                                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                                                    Self::process_controls(writer, &attribute.controls)
+                                                                                                })?;
                                                                                         },
                                                                                         AttributeType::Field => {
                                                                                             writer
                                                                                                 .create_element("Field")
                                                                                                 .with_attribute(("key", attribute.key.to_owned().as_str()))
-                                                                                                .write_empty()?;
+                                                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                                                    Self::process_controls(writer, &attribute.controls)
+                                                                                                })?;
                                                                                         },
                                                                                     }
                                                                                 }
@@ -824,7 +830,9 @@ impl TableXmlWriter {
                                                                                     writer
                                                                                         .create_element("Field")
                                                                                         .with_attribute(("key", attribute.key.to_owned().as_str()))
-                                                                                        .write_empty()?;
+                                                                                        .write_inner_content::<_, Error>(|writer| {
+                                                                                            Self::process_controls(writer, &attribute.controls)
+                                                                                        })?;
                                                                                 }
                                                                                 Ok(())
                                                                             })?;
@@ -1123,6 +1131,416 @@ impl TableXmlWriter {
                             })?;
                         Ok(())
                     })?;
+                Ok(())
+            })?;
+        Ok(())
+    }
+
+    fn process_controls(writer: &mut Writer<BufWriter<File>>, controls: &Vec<Control>) -> Result<(), Error> {
+        for control in controls.iter() {
+            match control {
+                Control::RuleRequired => {
+                    writer
+                        .create_element("Rule-Required")
+                        .write_empty()?;
+                },
+                Control::RuleIsLeaf => {
+                    writer
+                        .create_element("Rule-Is-Leaf")
+                        .write_empty()?;
+                },
+                Control::RuleMinLength { min } => {
+                    writer
+                        .create_element("Rule-Min-Length")
+                        .with_attribute(("min", min.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMaxLength { max } => {
+                    writer
+                        .create_element("Rule-Max-Length")
+                        .with_attribute(("max", max.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRegex { regex } => {
+                    writer
+                        .create_element("Rule-Regex")
+                        .with_attribute(("regex", regex.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleBarcode { barcode_type } => {
+                    writer
+                        .create_element("Rule-Barcode")
+                        .with_attribute(("type", barcode_type.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleLessThan { value } => {
+                    writer
+                        .create_element("Rule-Less-Than")
+                        .with_attribute(("value", value.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleGreaterThan { value } => {
+                    writer
+                        .create_element("Rule-Greater-Than")
+                        .with_attribute(("value", value.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleLessThanOrEqual { value } => {
+                    writer
+                        .create_element("Rule-Less-Than-Or-Equal")
+                        .with_attribute(("value", value.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleGreaterThanOrEqual { value } => {
+                    writer
+                        .create_element("Rule-Greater-Than-Or-Equal")
+                        .with_attribute(("value", value.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleDecimalPlaces { precision } => {
+                    writer
+                        .create_element("Rule-Decimal-Places")
+                        .with_attribute(("precision", precision.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMinWidthPx { min } => {
+                    writer
+                        .create_element("Rule-Min-Width-Px")
+                        .with_attribute(("min", min.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMaxWidthPx { max } =>  {
+                    writer
+                        .create_element("Rule-Max-Width-Px")
+                        .with_attribute(("max", max.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMinHeightPx { min } =>  {
+                    writer
+                        .create_element("Rule-Min-Height-Px")
+                        .with_attribute(("min", min.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMaxHeightPx { max } =>  {
+                    writer
+                        .create_element("Rule-Max-Height-Px")
+                        .with_attribute(("max", max.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMaxSizeKb { max } => {
+                    writer
+                        .create_element("Rule-Max-Size-Kb")
+                        .with_attribute(("max", max.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleExtension { extension } => {
+                    writer
+                        .create_element("Rule-Extension")
+                        .with_attribute(("extension", extension.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleColorSpace { name } => {
+                    writer
+                        .create_element("Rule-Color-Space")
+                        .with_attribute(("name", name.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleColorProfile { name } =>  {
+                    writer
+                        .create_element("Rule-Color-Profile")
+                        .with_attribute(("name", name.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMinValues { min } =>  {
+                    writer
+                        .create_element("Rule-Min-Values")
+                        .with_attribute(("min", min.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMaxValues { max } =>  {
+                    writer
+                        .create_element("Rule-Max-Values")
+                        .with_attribute(("name", max.to_string().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMustBeGreaterThanAnotherField { field } => {
+                    writer
+                        .create_element("Rule-Must-Be-Greater-Than-Another-Field")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMustBeGreaterThanOrEqualAnotherField { field } => {
+                    writer
+                        .create_element("Rule-Must-Be-Greater-Than-Or-Equal-Another-Field")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMustBeLessThanAnotherField { field } => {
+                    writer
+                        .create_element("Rule-Must-Be-Less-Than-Another-Field")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleMustBeLessThanOrEqualAnotherField { field } => {
+                    writer
+                        .create_element("Rule-Must-Be-Less-Than-Or-Equal-Another-Field")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsNotEmpty { field } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Not-Empty")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldHasOptions { field, options } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Has-Options")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .write_inner_content::<_, Error>(|writer| {
+                            for option in options.iter() {
+                                writer
+                                    .create_element("Option")
+                                    .write_text_content(BytesText::new(option.key.to_owned().as_str()))?;
+                            }
+                            Ok(())
+                        })?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsGreaterThan { field, value } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Greater-Than")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .with_attribute(("value", value.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsGreaterThanOrEqual { field, value } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Greater-Than-Or-Equal")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .with_attribute(("value", value.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsLessThan { field, value } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Less-Than")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .with_attribute(("value", value.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsLessThanOrEqual { field, value } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Less-Than-Or-Equal")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .with_attribute(("value", value.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleRequiredIfAnotherFieldIsEqualTo { field, value } => {
+                    writer
+                        .create_element("Rule-Required-If-Another-Field-Is-Equal-To")
+                        .with_attribute(("field", field.to_owned().as_str()))
+                        .with_attribute(("value", value.to_owned().as_str()))
+                        .write_empty()?;
+                },
+                Control::RuleCondition { key, condition_groups, title, title_locals } => {
+                    writer
+                        .create_element("Rule-Condition")
+                        .with_attribute(("key", key.to_owned().as_str()))
+                        .write_inner_content::<_, Error>(|writer| {
+                            Self::process_conditions(writer, condition_groups)?;
+                            writer
+                                .create_element("Title")
+                                .write_text_content(BytesText::new(title.to_owned().as_str()))?;
+                            match &title_locals {
+                                Some(locals) => {
+                                    for local in locals.iter() {
+                                        writer
+                                            .create_element("Title-Local")
+                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                    }
+                                },
+                                None => (),
+                            }
+                            Ok(())
+                        })?;
+                },
+            }
+        }
+        Ok(())
+    }
+
+    fn process_conditions(writer: &mut Writer<BufWriter<File>>, condition_groups: &Vec<ConditionGroup>) -> Result<(), Error> {
+        writer
+            .create_element("Conditions")
+            .write_inner_content::<_, Error>(|writer| {
+                for condition_group in condition_groups.iter() {
+                    writer
+                        .create_element("Condition-Group")
+                        .write_inner_content::<_, Error>(|writer| {
+                            for condition in condition_group.conditions.iter() {
+                                match condition {
+                                    Condition::Empty { source } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "EMPTY".to_owned().as_str()))
+                                            .write_empty()?;
+                                    },
+                                    Condition::NotEmpty { source } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "NOT_EMPTY".to_owned().as_str()))
+                                            .write_empty()?;
+                                    },
+                                    Condition::Contains { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "CONTAINS".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::Equals { source, value, use_suffix } => {
+                                        let mut condition_el = writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "EQUALS".to_owned().as_str()));
+                                        match use_suffix {
+                                            Some(use_suffix) => {
+                                                condition_el = condition_el.with_attribute(("use", use_suffix.to_string().as_str()));
+                                            },
+                                            None => (),
+                                        }
+                                        condition_el.write_inner_content::<_, Error>(|writer: &mut Writer<BufWriter<File>>| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::NotEquals { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "NOT_EQUALS".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::StartsWith { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator", "STARTS_WITH".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::EndsWith { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","ENDS_WITH".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::LessThan { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","LESS_THAN".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::LessThanOrEqual { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","LESS_THAN_OR_EQUAL".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::GreaterThan { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","GREATER_THAN".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::GreaterThanOrEqual { source, value } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","GREATER_THAN_OR_EQUAL".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::In { source, values } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","IN".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                for value in values.iter() {
+                                                    writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                }
+                                                Ok(())
+                                            })?;
+                                    },
+                                    Condition::NotIn { source, values } => {
+                                        writer
+                                            .create_element("Condition")
+                                            .with_attribute(("source", source.to_owned().as_str()))
+                                            .with_attribute(("operator","NOT_IN".to_owned().as_str()))
+                                            .write_inner_content::<_, Error>(|writer| {
+                                                for value in values.iter() {
+                                                    writer
+                                                    .create_element("Value")
+                                                    .write_text_content(BytesText::new(value.to_string().as_str()))?;
+                                                }
+                                                Ok(())
+                                            })?;
+                                    },
+                                }
+                                
+                            }
+                            Ok(())
+                        })?;
+                }
                 Ok(())
             })?;
         Ok(())

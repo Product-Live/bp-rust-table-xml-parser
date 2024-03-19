@@ -1105,6 +1105,15 @@ pub enum UseSuffix {
     SuffixKey,
     Suffix,
 }
+impl UseSuffix {
+    pub fn to_string(&self) -> String {
+        match self {
+            UseSuffix::Value => "VALUE".to_owned(),
+            UseSuffix::SuffixKey => "SUFFIX_KEY".to_owned(),
+            UseSuffix::Suffix => "SUFFIX".to_owned(),
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Formula {
     pub attribute_type: AttributeType,
