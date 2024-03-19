@@ -589,6 +589,40 @@ impl TableXmlWriter {
                                 }
                                 Ok(())
                             })?
+                            .create_element("Formulas")
+                            .write_inner_content::<_, Error>(|writer| {
+                                for attribute in table.schema.formulas.iter() {
+                                    let mut attribute_el = match attribute.attribute_type {
+                                        AttributeType::Identifier => {
+                                            writer.create_element("Identifier")
+                                        },
+                                        AttributeType::Classification => {
+                                            writer.create_element("Classification")
+                                        },
+                                        AttributeType::Field => {
+                                            writer.create_element("Field")
+                                        },
+                                    };
+                                    attribute_el = attribute_el.with_attribute(("key", attribute.key.to_owned().as_str()));
+                                    attribute_el.write_inner_content::<_, Error>(|writer| {
+                                        for rule in attribute.rules.iter() {
+                                            writer
+                                                .create_element("Rule")
+                                                .with_attribute(("priority", rule.priority.to_string().as_str()))
+                                                .write_inner_content::<_, Error>(|writer| {
+                                                    Self::process_conditions(writer, &rule.conditions)?;
+                                                    writer
+                                                        .create_element("Action")
+                                                        .with_attribute(("type", rule.action.to_string().as_str()))
+                                                        .write_empty()?;
+                                                    Ok(())
+                                                })?;
+                                        }
+                                        Ok(())
+                                    })?;
+                                }
+                                Ok(())
+                            })?
                             .create_element("Matrix")
                             .write_inner_content::<_, Error>(|writer| {
                                 writer

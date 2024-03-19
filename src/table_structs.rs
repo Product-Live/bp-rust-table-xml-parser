@@ -1140,9 +1140,15 @@ pub enum Action {
     SetSelectableOptions {
         values: Vec<String>,
     },
-    SetOption {
-        value: String,
-    },
+}
+impl Action {
+    pub fn to_string(&self) -> String {
+        match self {
+            Action::SetTextTemplate { trim_spaces, value } => "SET_TEXT".to_owned(),
+            Action::SetNumberTemplate { precision, round, value } => "SET_NUMBER".to_owned(),
+            Action::SetSelectableOptions { values } => "SET_SELECTABLE_OPTIONS".to_owned(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
