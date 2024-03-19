@@ -1,12 +1,11 @@
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::writer::Writer;
 // use std::error::Error;
+use quick_xml::Error;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
-use quick_xml::Error;
 
-
-use crate::table_structs::{CommonColumn, DataType, Table};
+use crate::table_structs::{AttributeType, CommonColumn, DataType, Table};
 
 pub struct TableXmlWriter {}
 
@@ -620,6 +619,228 @@ impl TableXmlWriter {
                                 }
                                 Ok(())
                             })?
+                            .create_element("Conditional-Formattings")
+                            .write_inner_content::<_, Error>(|writer| {
+                                for conditional_formatting in table.schema.conditional_formattings.iter() {
+                                    writer
+                                        .create_element("Conditional-Formatting")
+                                        .with_attribute(("key", conditional_formatting.key.to_owned().as_str()))
+                                        .with_attribute(("level", conditional_formatting.level.to_owned().as_str()))
+                                        .write_inner_content::<_, Error>(|writer| {
+                                            writer
+                                        .create_element("Title")
+                                        .write_text_content(BytesText::new(&conditional_formatting.title))?;
+                                    match &conditional_formatting.description {
+                                        None => (),
+                                        Some(description) => {
+                                            writer
+                                                .create_element("Description")
+                                                .write_text_content(BytesText::new(description.to_owned().as_str()))?;
+                                        }
+                                    }
+                                    match &conditional_formatting.title_locals {
+                                        None => (),
+                                        Some(locals) => {
+                                            for local in locals.iter() {
+                                                writer
+                                                    .create_element("Title-Local")
+                                                    .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                    .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                            }
+                                        }
+                                    }
+                                    match &conditional_formatting.description_locals {
+                                        None => (),
+                                        Some(locals) => {
+                                            for local in locals.iter() {
+                                                writer
+                                                    .create_element("Description-Local")
+                                                    .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                    .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                            }
+                                        }
+                                    }
+                                    match &conditional_formatting.metadata {
+                                        None => (),
+                                        Some(metadata) => {
+                                            for meta in metadata.iter() {
+                                                writer
+                                                    .create_element("Metadata")
+                                                    .with_attribute(("key", meta.key.to_owned().as_str()))
+                                                    .write_text_content(BytesText::new(meta.value.to_owned().as_str()))?;
+                                            }
+                                        }
+                                    }
+                                            writer
+                                                .create_element("Default-Status")
+                                                .with_attribute(("key", conditional_formatting.default_status.key.to_owned().as_str()))
+                                                .write_inner_content::<_, Error>(|writer| {
+                                                    writer
+                                                        .create_element("Title")
+                                                        .write_text_content(BytesText::new(&conditional_formatting.default_status.title.to_owned().as_str()))?;
+                                                    writer
+                                                        .create_element("Color")
+                                                        .write_text_content(BytesText::new(conditional_formatting.default_status.color.to_owned().as_str()))?;
+                                                    match &conditional_formatting.default_status.description {
+                                                        None => (),
+                                                        Some(description) => {
+                                                            writer
+                                                                .create_element("Description")
+                                                                .write_text_content(BytesText::new(description.to_owned().as_str()))?;
+                                                        }
+                                                    }
+                                                    match &conditional_formatting.default_status.title_locals {
+                                                        None => (),
+                                                        Some(locals) => {
+                                                            for local in locals.iter() {
+                                                                writer
+                                                                    .create_element("Title-Local")
+                                                                    .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                                    .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                            }
+                                                        }
+                                                    }
+                                                    match &conditional_formatting.default_status.description_locals {
+                                                        None => (),
+                                                        Some(locals) => {
+                                                            for local in locals.iter() {
+                                                                writer
+                                                                    .create_element("Description-Local")
+                                                                    .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                                    .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                            }
+                                                        }
+                                                    }
+                                                    match &conditional_formatting.default_status.metadata {
+                                                        None => (),
+                                                        Some(metadata) => {
+                                                            for meta in metadata.iter() {
+                                                                writer
+                                                                    .create_element("Metadata")
+                                                                    .with_attribute(("key", meta.key.to_owned().as_str()))
+                                                                    .write_text_content(BytesText::new(meta.value.to_owned().as_str()))?;
+                                                            }
+                                                        }
+                                                    }
+                                                    Ok(())
+                                                })?;
+                                            writer
+                                                .create_element("Statuses")
+                                                .write_inner_content::<_, Error>(|writer| {
+                                                    for status in conditional_formatting.statuses.iter() {
+                                                        writer
+                                                            .create_element("Status")
+                                                            .with_attribute(("key", status.key.to_owned().as_str()))
+                                                            .write_inner_content::<_, Error>(|writer| {
+                                                                writer
+                                                                .create_element("Title")
+                                                                .write_text_content(BytesText::new(status.title.to_owned().as_str()))?;
+                                                            writer
+                                                                .create_element("Color")
+                                                                .write_text_content(BytesText::new(status.color.to_owned().as_str()))?;
+                                                            writer
+                                                                .create_element("Priority")
+                                                                .write_text_content(BytesText::new(status.priority.to_string().as_str()))?;
+                                                            match &status.description {
+                                                                None => (),
+                                                                Some(description) => {
+                                                                    writer
+                                                                        .create_element("Description")
+                                                                        .write_text_content(BytesText::new(description.to_owned().as_str()))?;
+                                                                }
+                                                            }
+                                                            match &status.title_locals {
+                                                                None => (),
+                                                                Some(locals) => {
+                                                                    for local in locals.iter() {
+                                                                        writer
+                                                                            .create_element("Title-Local")
+                                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            match &status.description_locals {
+                                                                None => (),
+                                                                Some(locals) => {
+                                                                    for local in locals.iter() {
+                                                                        writer
+                                                                            .create_element("Description-Local")
+                                                                            .with_attribute(("lang", local.lang.to_owned().as_str()))
+                                                                            .write_text_content(BytesText::new(local.value.to_owned().as_str()))?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            match &status.metadata {
+                                                                None => (),
+                                                                Some(metadata) => {
+                                                                    for meta in metadata.iter() {
+                                                                        writer
+                                                                            .create_element("Metadata")
+                                                                            .with_attribute(("key", meta.key.to_owned().as_str()))
+                                                                            .write_text_content(BytesText::new(meta.value.to_owned().as_str()))?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            writer
+                                                                .create_element("Rules")
+                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                    if status.rules.common.len() > 0 {
+                                                                        writer
+                                                                            .create_element("Common")
+                                                                            .write_inner_content::<_, Error>(|writer| {
+                                                                                for attribute in status.rules.common.iter() {
+                                                                                    match attribute.attribute_type {
+                                                                                        AttributeType::Identifier => {
+                                                                                            writer
+                                                                                                .create_element("Identifier")
+                                                                                                .with_attribute(("key", attribute.key.to_owned().as_str()))
+                                                                                                .write_empty()?;
+                                                                                        },
+                                                                                        AttributeType::Classification => {
+                                                                                            writer
+                                                                                                .create_element("Classification")
+                                                                                                .with_attribute(("key", attribute.key.to_owned().as_str()))
+                                                                                                .write_empty()?;
+                                                                                        },
+                                                                                        AttributeType::Field => {
+                                                                                            writer
+                                                                                                .create_element("Field")
+                                                                                                .with_attribute(("key", attribute.key.to_owned().as_str()))
+                                                                                                .write_empty()?;
+                                                                                        },
+                                                                                    }
+                                                                                }
+                                                                                Ok(())
+                                                                            })?;
+                                                                    }
+                                                                    for specific in status.rules.specifics.iter() {
+                                                                        writer
+                                                                            .create_element("Specific")
+                                                                            .with_attribute(("classification", specific.classification.to_owned().as_str()))
+                                                                            .with_attribute(("category", specific.category.to_owned().as_str()))
+                                                                            .write_inner_content::<_, Error>(|writer| {
+                                                                                for attribute in specific.attributes.iter() {
+                                                                                    writer
+                                                                                        .create_element("Field")
+                                                                                        .with_attribute(("key", attribute.key.to_owned().as_str()))
+                                                                                        .write_empty()?;
+                                                                                }
+                                                                                Ok(())
+                                                                            })?;
+                                                                    }
+                                                                    Ok(())
+                                                                })?;
+                                                                Ok(())
+                                                            })?;
+                                                    }
+                                                    Ok(())
+                                                })?;
+                                            Ok(())
+                                        })?;
+                                }
+                                Ok(())
+                            })?
                             .create_element("Sections")
                             .write_inner_content::<_,Error>(|writer| {
                                 for section in table.schema.sections.iter() {
@@ -906,7 +1127,6 @@ impl TableXmlWriter {
             })?;
         Ok(())
     }
-    
 }
 
 #[cfg(test)]
@@ -915,10 +1135,10 @@ mod tests {
 
     #[test]
     fn write_file() {
-        let table_xml_parser = TableXmlParser::read("./tests/fnac.xml").unwrap();
+        let table_xml_parser = TableXmlParser::read("./tests/input.xml").unwrap();
         match TableXmlWriter::write(&table_xml_parser.table, "./tests/output.xml") {
             Ok(_) => assert!(true),
-            Err(_) => assert!(false)
+            Err(_) => assert!(false),
         }
     }
 }

@@ -1560,7 +1560,7 @@ impl TableXmlParser {
                     b"Common" => {
                         status.rules.common = self.process_status_rules_common(reader, buf)?
                     }
-                    b"Specfic" => match self.process_status_rules_specific(
+                    b"Specific" => match self.process_status_rules_specific(
                         get_attributes(ev.attributes())?,
                         reader,
                         buf,
@@ -1589,7 +1589,7 @@ impl TableXmlParser {
         loop {
             match reader.read_event_into(buf)? {
                 Event::Start(ev) => match ev.name().as_ref() {
-                    b"Identifier" | b"Classification" | b"Field" => {
+                    b"Identifier" => {
                         let mut key = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
                             Some(key_s) => key = key_s.to_owned(),
@@ -1599,6 +1599,36 @@ impl TableXmlParser {
                         if controls.len() > 0 {
                             common.push(CommonAttributeRules {
                                 attribute_type: AttributeType::Identifier,
+                                key: key,
+                                controls: controls,
+                            });
+                        }
+                    },
+                    b"Classification" => {
+                        let mut key = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(key_s) => key = key_s.to_owned(),
+                            None => (),
+                        }
+                        let controls = self.process_controls(reader, buf)?;
+                        if controls.len() > 0 {
+                            common.push(CommonAttributeRules {
+                                attribute_type: AttributeType::Classification,
+                                key: key,
+                                controls: controls,
+                            });
+                        }
+                    },
+                    b"Field" => {
+                        let mut key = "UNKNOWN".to_owned();
+                        match get_attributes(ev.attributes())?.get("key") {
+                            Some(key_s) => key = key_s.to_owned(),
+                            None => (),
+                        }
+                        let controls = self.process_controls(reader, buf)?;
+                        if controls.len() > 0 {
+                            common.push(CommonAttributeRules {
+                                attribute_type: AttributeType::Field,
                                 key: key,
                                 controls: controls,
                             });

@@ -149,12 +149,12 @@ mod tests {
         };
         println!("Starting parse xml");
 
-        match TableXmlParser::read("./tests/input.xml") {
+        match TableXmlParser::read("./tests/table.xml") {
             Ok(table_xml_parser) => {
                 println!("File parsed");
                 println!("{:#?}", table_xml_parser.warnings.len());
                 println!("{:#?}", table_xml_parser.errors.len());
-                println!("{:#?}", table_xml_parser.table.schema.matrix);
+                println!("{:#?}", table_xml_parser.table.schema.fields.len());
                 // assert_eq!(table, expected)
                 assert!(false)
             }
