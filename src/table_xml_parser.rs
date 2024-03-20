@@ -225,6 +225,7 @@ impl TableXmlParser {
                 Event::Start(ev) => {
                     match ev.name().as_ref() {
                         b"Title" => partition.title = self.handle_text(reader, buf)?,
+                        b"Position" => partition.position = self.handle_number(reader, buf)?,
                         b"Description" => {
                             partition.description = self.handle_optional_text(reader, buf)?
                         }
@@ -862,7 +863,7 @@ impl TableXmlParser {
         match attributes.get("default") {
             Some(default) => match default.as_bytes() {
                 b"true" => suffix.default = Some(true),
-                _ => ()
+                _ => (),
             },
             None => (),
         }
@@ -1603,7 +1604,7 @@ impl TableXmlParser {
                                 controls: controls,
                             });
                         }
-                    },
+                    }
                     b"Classification" => {
                         let mut key = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
@@ -1618,7 +1619,7 @@ impl TableXmlParser {
                                 controls: controls,
                             });
                         }
-                    },
+                    }
                     b"Field" => {
                         let mut key = "UNKNOWN".to_owned();
                         match get_attributes(ev.attributes())?.get("key") {
@@ -2290,7 +2291,7 @@ impl TableXmlParser {
                         }
                     },
                     b"NOT_IN" => match self.handle_values(reader, buf)? {
-                        Some(values) => Ok(Some(Condition::In {
+                        Some(values) => Ok(Some(Condition::NotIn {
                             source: source.to_owned(),
                             values: values,
                         })),

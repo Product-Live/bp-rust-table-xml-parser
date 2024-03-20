@@ -618,14 +618,26 @@ impl TableXmlWriter {
                                                                 .with_attribute(("type", "SET_TEXT".to_owned().as_str()))
                                                                 .write_inner_content::<_, Error>(|writer| {
                                                                     let mut template_el = writer.create_element("Template");
-                                                                    if trim_spaces == true {
+                                                                    if trim_spaces == &true {
                                                                         template_el = template_el.with_attribute(("trim-spaces", "true".to_owned().as_str()));
                                                                     }
                                                                     template_el.write_cdata_content(BytesCData::new(value.to_owned().as_str()))?;
                                                                     Ok(())
                                                                 })?;
                                                         },
-                                                        Action::SetNumberTemplate { precision, round, value } => (),
+                                                        Action::SetNumberTemplate { precision, round, value } => {
+                                                            writer
+                                                                .create_element("Action")
+                                                                .with_attribute(("type", "SET_NUMBER".to_owned().as_str()))
+                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                    writer
+                                                                        .create_element("Template")
+                                                                        .with_attribute(("precision", precision.to_string().as_str()))
+                                                                        .with_attribute(("round", round.to_owned().as_str()))
+                                                                        .write_cdata_content(BytesCData::new(value.to_string().as_str()))?;
+                                                                    Ok(())
+                                                                })?;
+                                                        },
                                                         Action::SetSelectableOptions { values } => {
                                                             writer
                                                                 .create_element("Action")
@@ -971,6 +983,7 @@ impl TableXmlWriter {
                                     writer
                                         .create_element("Screen")
                                         .with_attribute(("key", screen.key.to_owned().as_str()))
+                                        .with_attribute(("level", screen.level.to_owned().as_str()))
                                         .write_inner_content::<_,Error>(|writer| {
                                             writer
                                                 .create_element("Title")
@@ -1153,7 +1166,7 @@ impl TableXmlWriter {
                                                                                     let mut column_el = writer
                                                                                         .create_element("Column-Field")
                                                                                         .with_attribute(("key", column.key.to_owned().as_str()))
-                                                                                        .with_attribute(("position", column.key.to_owned().as_str()));
+                                                                                        .with_attribute(("position", column.position.to_string().as_str()));
                                                                                     match &column.fixed {
                                                                                         Some(fixed) => {
                                                                                             if fixed.to_owned() == true {

@@ -1,1 +1,246 @@
-<Table key="PRODUCTS"><Title>Products</Title><Color>BLUE</Color><Position>1</Position><Description>Products&apos; table</Description><Title-Local lang="fra">Produits</Title-Local><Description-Local lang="fra">La table produits</Description-Local><Schema><Levels><Level key="PRODUCT" index="1"><Title>Product</Title><Title-Local lang="fra">Produit</Title-Local></Level></Levels><Partitions><Partition key="ACTIVE"><Title>Active</Title><Position>0</Position><Title-Local lang="fra">Actifs</Title-Local></Partition></Partitions><Identifiers><Identifier key="EAN_13" index="1" level="PRODUCT"><Title>EAN 13</Title><Metadata key="SYSTEM">ERP</Metadata></Identifier></Identifiers><Classifications><Classification key="TYPOLOGY"><Title>Typology</Title><Categories><Category key="HOME_APPLIANCE"><Title>Home appliance</Title></Category><Category key="PHONES" parent="HOME_APPLIANCE"><Title>Phones</Title></Category></Categories></Classification></Classifications><Fields><Field key="TITLE_EN" type="SINGLE-LINE-TEXT" level="PRODUCT"><Title>Title EN</Title><Description>Product&apos;s title in english</Description><Title-Local lang="fra">Titre EN</Title-Local><Description-Local lang="fra">Le titre du produit en anglais</Description-Local><Metadata key="SYSTEM">ERP</Metadata></Field><Field key="COLOR" type="SINGLE-SELECT" level="PRODUCT"><Title>Color</Title><Description>Product&apos;s color</Description><Title-Local lang="fra">Couleur</Title-Local><Description-Local lang="fra">La couleur du produit</Description-Local><Metadata key="SYSTEM">ERP</Metadata><Options><Option key="RED" color="RED"><Title>Red</Title><Title-Local lang="fra">Rouge</Title-Local><Metadata key="SYSTEM">ERP</Metadata></Option><Option key="GREEN" color="GREEN"><Title>Green</Title><Title-Local lang="fra">Vert</Title-Local></Option></Options></Field><Field key="STORAGE_GB" type="NUMBER" level="PRODUCT"><Title>Storage GB</Title><Description>Storage capacity</Description><Title-Local lang="fra">Stockage GB</Title-Local><Description-Local lang="fra">Capacité de stockage</Description-Local><Metadata key="SYSTEM">2</Metadata><Suffix>GB</Suffix></Field><Field key="CAMERA_RESOLUTION" type="NUMBER" level="product"><Title>Camera resolution</Title><Description>The resolution of an image is the number of pixels contained in the image per unit length.</Description><Suffixes><Suffix key="PIXEL" default="true"><Title>Pixel</Title><Description>A unit of count defining the number of pixels</Description></Suffix><Suffix key="MEGAPIXEL"><Title>Megapixel</Title><Description>A unit of count equal to 10⁶ (1000000) pixels (picture elements).</Description></Suffix></Suffixes></Field></Fields><Formulas><Identifier key="SUPPLIER-SUPPLIER_REF"><Rule priority="1"><Conditions><Condition-Group><Condition source="SUPPLIER" operator="NOT_EMPTY"/><Condition source="SUPPLIER_REF" operator="NOT_EMPTY"/></Condition-Group></Conditions><Action type="SET_TEXT"/></Rule></Identifier><Field key="VOLUME_CM_3"><Rule priority="1"><Conditions><Condition-Group><Condition source="WIDTH_CM" operator="NOT_EMPTY"/><Condition source="HEIGHT_CM" operator="NOT_EMPTY"/><Condition source="DEPTH_CM" operator="NOT_EMPTY"/></Condition-Group></Conditions><Action type="SET_NUMBER"/></Rule></Field><Field key="DEEE_SCALE"><Rule priority="1"><Conditions><Condition-Group><Condition source="SUPPLIER" operator="IN"><Value>SUPPLIER-1</Value><Value>SUPPLIER-2</Value></Condition></Condition-Group></Conditions><Action type="SET_SELECTABLE_OPTIONS"/></Rule><Rule priority="2"><Conditions><Condition-Group><Condition source="SUPPLIER" operator="IN"><Value>SUPPLIER-3</Value></Condition></Condition-Group></Conditions><Action type="SET_SELECTABLE_OPTIONS"/></Rule></Field></Formulas><Matrix><Common><Field key="TITLE_EN"/><Field key="COLOR"/></Common><Specific classification="TYPOLOGY" category="PHONES"><Field key="STORAGE"/></Specific></Matrix><Conditional-Formattings><Conditional-Formatting key="COMPLIANCE" level="PRODUCT"><Title>Compliance</Title><Title-Local lang="fra">Conformité</Title-Local><Default-Status key="VALID"><Title>Valid</Title><Color>GREEN</Color><Title-Local lang="fra">Valide</Title-Local></Default-Status><Statuses><Status key="INVALID"><Title>Invalid</Title><Color>RED</Color><Priority>1</Priority><Rules><Common><Identifier key="EAN_13"><Rule-Barcode type="EAN13"/><Rule-Required/></Identifier><Field key="TITLE_EN"><Rule-Required/><Rule-Min-Length min="3"/><Rule-Max-Length max="27"/></Field><Field key="ATTR00480"><Rule-Required/><Rule-Condition key="ATTR00480_NOT_EA"><Conditions><Condition-Group><Condition source="ATTR00480" operator="EMPTY"/><Condition source="ATTR00480" operator="IN"><Value>PK (Pack / Carton/ Vendor outer pack)</Value><Value>PL (Palette)</Value></Condition><Condition source="ATTR00460" operator="GREATER_THAN"><Value>1</Value></Condition></Condition-Group></Conditions><Title>L&apos;arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title><Title-Local lang="fra">Round must PK or PL</Title-Local></Rule-Condition></Field></Common></Rules></Status><Status key="RECOMMENDED"><Title>Recommended</Title><Color>ORANGE</Color><Priority>2</Priority><Rules></Rules></Status></Statuses></Conditional-Formatting></Conditional-Formattings><Sections><Section key="IDENTIFIERS"><Title>Identifiers</Title><Title-Local lang="fra">Identifiants</Title-Local></Section></Sections><Screens><Screen key="ALL_PROPERTIES"><Title>All properties</Title><Position>1</Position><Title-Local lang="fra">Tous les attributs</Title-Local><Grid><Line-Height>SHORT</Line-Height><Common><Section key="IDENTIFIERS" position="1"><Column-Identifier key="EAN_13" position="1" fixed="true" read-only="true"/><Column-Field key="MAIN_IMAGE" position="2"/><Column-Classification key="TYPOLOGY" position="3"/><Column-Conditional-Formatting key="COMPLIANCE" position="4"/><Column-Field key="TITLE_EN" position="5"/><Column-Field key="DESCRIPTION_EN" position="6"/><Column-Field key="PRICE_EURO" position="7" width="SMALL"/></Section></Common><Specific classification="TYPOLOGY" category="HOME_APPLIANCE"><Section key="INFORMATIONS" position="1"><Column-Field key="INSTRUCTIONS" position="INSTRUCTIONS"/></Section></Specific></Grid></Screen></Screens></Schema></Table>
+<Table key="PRODUCTS">
+    <Title>Products</Title>
+    <Color>BLUE</Color>
+    <Position>1</Position>
+    <Description>Products&apos; table</Description>
+    <Title-Local lang="fra">Produits</Title-Local>
+    <Description-Local lang="fra">La table produits</Description-Local>
+    <Schema>
+        <Levels>
+            <Level key="PRODUCT" index="1">
+                <Title>Product</Title>
+                <Title-Local lang="fra">Produit</Title-Local>
+            </Level>
+        </Levels>
+        <Partitions>
+            <Partition key="ACTIVE">
+                <Title>Active</Title>
+                <Position>1</Position>
+                <Title-Local lang="fra">Actifs</Title-Local>
+            </Partition>
+        </Partitions>
+        <Identifiers>
+            <Identifier key="EAN_13" index="1" level="PRODUCT">
+                <Title>EAN 13</Title>
+                <Metadata key="SYSTEM">ERP</Metadata>
+            </Identifier>
+        </Identifiers>
+        <Classifications>
+            <Classification key="TYPOLOGY">
+                <Title>Typology</Title>
+                <Categories>
+                    <Category key="HOME_APPLIANCE">
+                        <Title>Home appliance</Title>
+                    </Category>
+                    <Category key="PHONES" parent="HOME_APPLIANCE">
+                        <Title>Phones</Title>
+                    </Category>
+                </Categories>
+            </Classification>
+        </Classifications>
+        <Fields>
+            <Field key="TITLE_EN" type="SINGLE-LINE-TEXT" level="PRODUCT">
+                <Title>Title EN</Title>
+                <Description>Product&apos;s title in english</Description>
+                <Title-Local lang="fra">Titre EN</Title-Local>
+                <Description-Local lang="fra">Le titre du produit en anglais</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+            </Field>
+            <Field key="COLOR" type="SINGLE-SELECT" level="PRODUCT">
+                <Title>Color</Title>
+                <Description>Product&apos;s color</Description>
+                <Title-Local lang="fra">Couleur</Title-Local>
+                <Description-Local lang="fra">La couleur du produit</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+                <Options>
+                    <Option key="RED" color="RED">
+                        <Title>Red</Title>
+                        <Title-Local lang="fra">Rouge</Title-Local>
+                        <Metadata key="SYSTEM">ERP</Metadata>
+                    </Option>
+                    <Option key="GREEN" color="GREEN">
+                        <Title>Green</Title>
+                        <Title-Local lang="fra">Vert</Title-Local>
+                    </Option>
+                </Options>
+            </Field>
+            <Field key="STORAGE_GB" type="NUMBER" level="PRODUCT">
+                <Title>Storage GB</Title>
+                <Description>Storage capacity</Description>
+                <Title-Local lang="fra">Stockage GB</Title-Local>
+                <Description-Local lang="fra">Capacité de stockage</Description-Local>
+                <Metadata key="SYSTEM">2</Metadata>
+                <Suffix>GB</Suffix>
+            </Field>
+            <Field key="CAMERA_RESOLUTION" type="NUMBER" level="product">
+                <Title>Camera resolution</Title>
+                <Description>The resolution of an image is the number of pixels contained in the image per unit length.</Description>
+                <Suffixes>
+                    <Suffix key="PIXEL" default="true">
+                        <Title>Pixel</Title>
+                        <Description>A unit of count defining the number of pixels</Description>
+                    </Suffix>
+                    <Suffix key="MEGAPIXEL">
+                        <Title>Megapixel</Title>
+                        <Description>A unit of count equal to 10⁶ (1000000) pixels (picture elements).</Description>
+                    </Suffix>
+                </Suffixes>
+            </Field>
+        </Fields>
+        <Formulas>
+            <Identifier key="SUPPLIER-SUPPLIER_REF">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="NOT_EMPTY"/>
+                            <Condition source="SUPPLIER_REF" operator="NOT_EMPTY"/>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_TEXT">
+                        <Template trim-spaces="true"><![CDATA[{{source("SUPPLIER","key")}}-{{source("SUPPLIER_REF")}}]]></Template>
+                    </Action>
+                </Rule>
+            </Identifier>
+            <Field key="VOLUME_CM_3">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="WIDTH_CM" operator="NOT_EMPTY"/>
+                            <Condition source="HEIGHT_CM" operator="NOT_EMPTY"/>
+                            <Condition source="DEPTH_CM" operator="NOT_EMPTY"/>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_NUMBER">
+                        <Template precision="0" round="CEILING"><![CDATA[{{source("WIDTH_CM")}} * {{source("HEIGHT_CM")}} * {{source("DEPTH_CM")}}]]></Template>
+                    </Action>
+                </Rule>
+            </Field>
+            <Field key="DEEE_SCALE">
+                <Rule priority="1">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="IN">
+                                <Value>SUPPLIER-1</Value>
+                                <Value>SUPPLIER-2</Value>
+                            </Condition>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_SELECTABLE_OPTIONS">
+                        <Value>DEEE-1</Value>
+                        <Value>DEEE-2</Value>
+                    </Action>
+                </Rule>
+                <Rule priority="2">
+                    <Conditions>
+                        <Condition-Group>
+                            <Condition source="SUPPLIER" operator="IN">
+                                <Value>SUPPLIER-3</Value>
+                            </Condition>
+                        </Condition-Group>
+                    </Conditions>
+                    <Action type="SET_SELECTABLE_OPTIONS">
+                        <Value>DEEE-1</Value>
+                        <Value>DEEE-3</Value>
+                    </Action>
+                </Rule>
+            </Field>
+        </Formulas>
+        <Matrix>
+            <Common>
+                <Field key="TITLE_EN"/>
+                <Field key="COLOR"/>
+            </Common>
+            <Specific classification="TYPOLOGY" category="PHONES">
+                <Field key="STORAGE"/>
+            </Specific>
+        </Matrix>
+        <Conditional-Formattings>
+            <Conditional-Formatting key="COMPLIANCE" level="PRODUCT">
+                <Title>Compliance</Title>
+                <Title-Local lang="fra">Conformité</Title-Local>
+                <Default-Status key="VALID">
+                    <Title>Valid</Title>
+                    <Color>GREEN</Color>
+                    <Title-Local lang="fra">Valide</Title-Local>
+                </Default-Status>
+                <Statuses>
+                    <Status key="INVALID">
+                        <Title>Invalid</Title>
+                        <Color>RED</Color>
+                        <Priority>1</Priority>
+                        <Rules>
+                            <Common>
+                                <Identifier key="EAN_13">
+                                    <Rule-Barcode type="EAN13"/>
+                                    <Rule-Required/>
+                                </Identifier>
+                                <Field key="TITLE_EN">
+                                    <Rule-Required/>
+                                    <Rule-Min-Length min="3"/>
+                                    <Rule-Max-Length max="27"/>
+                                </Field>
+                                <Field key="ATTR00480">
+                                    <Rule-Required/>
+                                    <Rule-Condition key="ATTR00480_NOT_EA">
+                                        <Conditions>
+                                            <Condition-Group>
+                                                <Condition source="ATTR00480" operator="EMPTY"/>
+                                                <Condition source="ATTR00480" operator="NOT_IN">
+                                                    <Value>PK (Pack / Carton/ Vendor outer pack)</Value>
+                                                    <Value>PL (Palette)</Value>
+                                                </Condition>
+                                                <Condition source="ATTR00460" operator="GREATER_THAN">
+                                                    <Value>1</Value>
+                                                </Condition>
+                                            </Condition-Group>
+                                        </Conditions>
+                                        <Title>L&apos;arrondi de commande doit être PK ou PL si le multiple de commande est supérieur à 1</Title>
+                                        <Title-Local lang="fra">Round must PK or PL</Title-Local>
+                                    </Rule-Condition>
+                                </Field>
+                            </Common>
+                        </Rules>
+                    </Status>
+                    <Status key="RECOMMENDED">
+                        <Title>Recommended</Title>
+                        <Color>ORANGE</Color>
+                        <Priority>2</Priority>
+                        <Rules></Rules>
+                    </Status>
+                </Statuses>
+            </Conditional-Formatting>
+        </Conditional-Formattings>
+        <Sections>
+            <Section key="IDENTIFIERS">
+                <Title>Identifiers</Title>
+                <Title-Local lang="fra">Identifiants</Title-Local>
+            </Section>
+        </Sections>
+        <Screens>
+            <Screen key="ALL_PROPERTIES" level="PRODUCT">
+                <Title>All properties</Title>
+                <Position>1</Position>
+                <Title-Local lang="fra">Tous les attributs</Title-Local>
+                <Grid>
+                    <Line-Height>SHORT</Line-Height>
+                    <Common>
+                        <Section key="IDENTIFIERS" position="1">
+                            <Column-Identifier key="EAN_13" position="1" fixed="true" read-only="true"/>
+                            <Column-Field key="MAIN_IMAGE" position="2"/>
+                            <Column-Classification key="TYPOLOGY" position="3"/>
+                            <Column-Conditional-Formatting key="COMPLIANCE" position="4"/>
+                            <Column-Field key="TITLE_EN" position="5"/>
+                            <Column-Field key="DESCRIPTION_EN" position="6"/>
+                            <Column-Field key="PRICE_EURO" position="7" width="SMALL"/>
+                        </Section>
+                    </Common>
+                    <Specific classification="TYPOLOGY" category="HOME_APPLIANCE">
+                        <Section key="INFORMATIONS" position="1">
+                            <Column-Field key="INSTRUCTIONS" position="1"/>
+                        </Section>
+                    </Specific>
+                </Grid>
+            </Screen>
+        </Screens>
+    </Schema>
+</Table>
