@@ -29,6 +29,12 @@ fn file_with_empty_table_element() {
     assert_eq!(table_xml_parser.errors[0].code, "EMPTY_TABLE_ELEMENT");
 }
 
+// #[test]
+// fn process_large_file() {
+//     let table_xml_parser = TableXmlParser::read("./src/tests/inputs/full-table.xml").unwrap();
+//     assert!(true);
+// }
+
 #[test]
 fn xml_parser() {
     let expected = Table {
