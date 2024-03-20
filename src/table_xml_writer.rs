@@ -1,11 +1,11 @@
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::events::{BytesCData, BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::writer::Writer;
 // use std::error::Error;
 use quick_xml::Error;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 
-use crate::table_structs::{AttributeType, CommonColumn, Condition, ConditionGroup, Control, DataType, Table};
+use crate::table_structs::{Action, AttributeType, CommonColumn, Condition, ConditionGroup, Control, DataType, Table};
 
 pub struct TableXmlWriter {}
 
@@ -611,10 +611,36 @@ impl TableXmlWriter {
                                                 .with_attribute(("priority", rule.priority.to_string().as_str()))
                                                 .write_inner_content::<_, Error>(|writer| {
                                                     Self::process_conditions(writer, &rule.conditions)?;
-                                                    writer
-                                                        .create_element("Action")
-                                                        .with_attribute(("type", rule.action.to_string().as_str()))
-                                                        .write_empty()?;
+                                                    match &rule.action {
+                                                        Action::SetTextTemplate { trim_spaces, value } => {
+                                                            writer
+                                                                .create_element("Action")
+                                                                .with_attribute(("type", "SET_TEXT".to_owned().as_str()))
+                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                    let mut template_el = writer.create_element("Template");
+                                                                    if trim_spaces == true {
+                                                                        template_el = template_el.with_attribute(("trim-spaces", "true".to_owned().as_str()));
+                                                                    }
+                                                                    template_el.write_cdata_content(BytesCData::new(value.to_owned().as_str()))?;
+                                                                    Ok(())
+                                                                })?;
+                                                        },
+                                                        Action::SetNumberTemplate { precision, round, value } => (),
+                                                        Action::SetSelectableOptions { values } => {
+                                                            writer
+                                                                .create_element("Action")
+                                                                .with_attribute(("type", "SET_SELECTABLE_OPTIONS".to_owned().as_str()))
+                                                                .write_inner_content::<_, Error>(|writer| {
+                                                                    for value in values.iter() {
+                                                                        writer
+                                                                            .create_element("Value")
+                                                                            .write_text_content(BytesText::new(value.to_owned().as_str()))?;
+                                                                    }
+                                                                    Ok(())
+                                                                })?;
+                                                        },
+                                                    }
+                                                    
                                                     Ok(())
                                                 })?;
                                         }
