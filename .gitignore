@@ -14,3 +14,10 @@ Cargo.lock
 *.pdb
 tests/castorama-wip.xml
 tests/full-table.xml
+src/tests/inputs/castorama-wip.zip
+src/tests/inputs/castorama-wip.xml
+src/tests/inputs/full-table.xml
+src/tests/inputs/fnac.xml
+src/tests/inputs/table.xml
+src/tests/outputs/output.xml
+src/tests/inputs/output.xml

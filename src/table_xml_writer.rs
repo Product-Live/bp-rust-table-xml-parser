@@ -11,7 +11,6 @@ pub struct TableXmlWriter {}
 
 impl TableXmlWriter {
     pub fn write(table: &Table, path: &str) -> Result<(), Error> {
-        // let mut buffer = File::create(path)?;
         let mut writer = Writer::new(BufWriter::new(File::create(path).unwrap()));
 
         writer
@@ -1617,19 +1616,5 @@ impl TableXmlWriter {
                 Ok(())
             })?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{table_xml_parser::TableXmlParser, table_xml_writer::TableXmlWriter};
-
-    #[test]
-    fn write_file() {
-        let table_xml_parser = TableXmlParser::read("./tests/input.xml").unwrap();
-        match TableXmlWriter::write(&table_xml_parser.table, "./tests/output.xml") {
-            Ok(_) => assert!(true),
-            Err(_) => assert!(false),
-        }
     }
 }
