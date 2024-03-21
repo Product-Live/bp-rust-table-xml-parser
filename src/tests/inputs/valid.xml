@@ -70,10 +70,10 @@
                 <Description>Storage capacity</Description>
                 <Title-Local lang="fra">Stockage GB</Title-Local>
                 <Description-Local lang="fra">Capacité de stockage</Description-Local>
-                <Metadata key="SYSTEM">2</Metadata>
+                <Metadata key="SYSTEM">ERP</Metadata>
                 <Suffix>GB</Suffix>
             </Field>
-            <Field key="CAMERA_RESOLUTION" type="NUMBER" level="product">
+            <Field key="CAMERA_RESOLUTION" type="NUMBER" level="PRODUCT">
                 <Title>Camera resolution</Title>
                 <Description>The resolution of an image is the number of pixels contained in the image per unit length.</Description>
                 <Suffixes>
