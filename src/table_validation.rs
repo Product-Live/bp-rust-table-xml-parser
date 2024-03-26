@@ -1,6 +1,6 @@
 use std::{collections::HashSet, error::Error};
 
-use crate::table_structs::{Partition, Table};
+use crate::table_structs::{Field, Partition, Table};
 
 pub enum LogError {
     Partition {
@@ -22,6 +22,12 @@ pub enum LogError {
         classification_key: String,
         category_key: String,
     },
+    Field {
+        code: String,
+        message: String,
+        xpath: String,
+        field_key: String,
+    },
 }
 
 pub struct TableValidation {
@@ -30,9 +36,7 @@ pub struct TableValidation {
 
 impl TableValidation {
     pub fn new() -> Self {
-        TableValidation {
-            errors: vec![]
-        }
+        TableValidation { errors: vec![] }
     }
     pub fn validate(&mut self, table: &Table) -> Result<(), Box<dyn Error>> {
         self.validate_partitions(&table.schema.partitions)?;
@@ -43,9 +47,12 @@ impl TableValidation {
         partitions: &Vec<Partition>,
     ) -> Result<(), Box<dyn Error>> {
         let mut partition_keys: Vec<String> = vec![];
-        let mut partition_indexes: Vec<(String, usize)> = vec![];
-        for (idx, partition) in partitions.iter().enumerate() {
-            self.validate_partition(partition, &mut partition_keys, &mut partition_indexes, idx)?;
+        let mut partition_positions: Vec<(String, usize)> = vec![];
+        for partition in partitions.iter() {
+            let key = &partition.key;
+            partition_keys.push(key.to_owned());
+            partition_positions.push((key.to_owned(), partition.position));
+            self.validate_partition(partition)?;
         }
         match control_text_uniqueness(partition_keys)? {
             Some(keys) => {
@@ -53,26 +60,20 @@ impl TableValidation {
                     self.errors.push(LogError::Partition {
                         code: "DUPLICATE_KEY".to_owned(),
                         message: "Partition' attribute @key is not unique.".to_owned(),
-                        xpath: format!(
-                            "/Table/Schema/Partitions/Partition[@key='{}']/@key",
-                            key
-                        ),
+                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                         partition_key: key.to_owned(),
                     })
                 }
             }
             None => (),
         };
-        match control_number_uniqueness(partition_indexes)? {
+        match control_number_uniqueness(partition_positions)? {
             Some(keys) => {
                 for key in keys.iter() {
                     self.errors.push(LogError::Partition {
                         code: "DUPLICATE_INDEX".to_owned(),
-                        message: "Partition' attribute @index is not unique.".to_owned(),
-                        xpath: format!(
-                            "/Table/Schema/Partitions/Partition[@key='{}']/@index",
-                            key
-                        ),
+                        message: "Partition' element position is not unique.".to_owned(),
+                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@index", key),
                         partition_key: key.to_owned(),
                     })
                 }
@@ -81,27 +82,23 @@ impl TableValidation {
         };
         Ok(())
     }
-    pub fn validate_partition(&mut self, partition: &Partition, partition_keys: &mut Vec<String>, partition_indexes: &mut Vec<(String, usize)>, idx: usize) -> Result<(), Box<dyn Error>> {
+    pub fn validate_partition(&mut self, partition: &Partition) -> Result<(), Box<dyn Error>> {
         let key = &partition.key;
-        partition_keys.push(key.to_owned());
-        partition_indexes.push((key.to_owned(), idx));
         if key.ends_with(" ") || key.starts_with(" ") {
             self.errors.push(LogError::Partition {
                 code: "KEY_STARTS_OR_ENDS_WHITESPACE".to_owned(),
-                message: format!(
-                    "Partition attribute @key starts or ends with a whitespace."
-                ),
+                message: format!("Partition attribute @key starts or ends with a whitespace."),
                 xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                 partition_key: key.to_owned(),
             })
         }
-        match control_min_length(partition.key.to_owned(), 0)? {
+        match control_min_length(partition.key.to_owned(), 1)? {
             Some(value_length) => self.errors.push(LogError::Partition {
                 code: "MIN_LENGTH".to_owned(),
                 message: format!(
-                "Partition attribute @key is not greater than {} characters (actual: {}).",
-                0, value_length
-            ),
+                    "Partition attribute @key is not greater than {} characters (actual: {}).",
+                    0, value_length
+                ),
                 xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                 partition_key: key.to_owned(),
             }),
@@ -111,21 +108,21 @@ impl TableValidation {
             Some(value_length) => self.errors.push(LogError::Partition {
                 code: "MAX_LENGTH".to_owned(),
                 message: format!(
-                "Partition attribute @key is not lower than {} characters (actual: {}).",
-                255, value_length
-            ),
+                    "Partition attribute @key is not lower than {} characters (actual: {}).",
+                    255, value_length
+                ),
                 xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
                 partition_key: key.to_owned(),
             }),
             None => (),
         }
-        match control_min_length(partition.title.to_owned(), 0)? {
+        match control_min_length(partition.title.to_owned(), 1)? {
             Some(value_length) => self.errors.push(LogError::Partition {
                 code: "MIN_LENGTH".to_owned(),
                 message: format!(
-                "Partition element Title is not greater than {} characters (actual: {}).",
-                0, value_length
-            ),
+                    "Partition element Title is not greater than {} characters (actual: {}).",
+                    0, value_length
+                ),
                 xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
                 partition_key: key.to_owned(),
             }),
@@ -144,7 +141,90 @@ impl TableValidation {
             None => (),
         }
         Ok(())
-    } 
+    }
+
+    pub fn validate_fields(&mut self, fields: &Vec<Field>) -> Result<(), Box<dyn Error>> {
+        let mut field_keys: Vec<String> = vec![];
+        for field in fields.iter() {
+            let key = &field.key;
+            field_keys.push(key.to_owned());
+            self.validate_field(field)?;
+        }
+        match control_text_uniqueness(field_keys)? {
+            Some(keys) => {
+                for key in keys.iter() {
+                    self.errors.push(LogError::Field {
+                        code: "DUPLICATE_KEY".to_owned(),
+                        message: "Field' attribute @key is not unique.".to_owned(),
+                        xpath: format!("/Table/Schema/Fields/Field[@key='{}']/@key", key),
+                        field_key: key.to_owned(),
+                    })
+                }
+            }
+            None => (),
+        };
+        Ok(())
+    }
+    pub fn validate_field(&mut self, field: &Field) -> Result<(), Box<dyn Error>> {
+        let key = &field.key;
+        if key.ends_with(" ") || key.starts_with(" ") {
+            self.errors.push(LogError::Field {
+                code: "KEY_STARTS_OR_ENDS_WHITESPACE".to_owned(),
+                message: format!("Field attribute @key starts or ends with a whitespace."),
+                xpath: format!("/Table/Schema/Fields/Field[@key='{}']/@key", key),
+                field_key: key.to_owned(),
+            })
+        }
+        match control_min_length(field.key.to_owned(), 1)? {
+            Some(value_length) => self.errors.push(LogError::Field {
+                code: "MIN_LENGTH".to_owned(),
+                message: format!(
+                    "Field attribute @key is not greater than {} characters (actual: {}).",
+                    0, value_length
+                ),
+                xpath: format!("/Table/Schema/Fields/Field[@key='{}']/@key", key),
+                field_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_max_length(field.key.to_owned(), 255)? {
+            Some(value_length) => self.errors.push(LogError::Field {
+                code: "MAX_LENGTH".to_owned(),
+                message: format!(
+                    "Field attribute @key is not lower than {} characters (actual: {}).",
+                    255, value_length
+                ),
+                xpath: format!("/Table/Schema/Fields/Field[@key='{}']/@key", key),
+                field_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_min_length(field.title.to_owned(), 1)? {
+            Some(value_length) => self.errors.push(LogError::Field {
+                code: "MIN_LENGTH".to_owned(),
+                message: format!(
+                    "Field element Title is not greater than {} characters (actual: {}).",
+                    0, value_length
+                ),
+                xpath: format!("/Table/Schema/Fields/Field[@key='{}']/Title", key),
+                field_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_max_length(field.title.to_owned(), 255)? {
+            Some(value_length) => self.errors.push(LogError::Field {
+                code: "MAX_LENGTH".to_owned(),
+                message: format!(
+                    "Field element Title is not lower than {} characters (actual: {}).",
+                    255, value_length
+                ),
+                xpath: format!("/Table/Schema/Fields/Field[@key='{}']/Title", key),
+                field_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        Ok(())
+    }
 }
 
 // Utils
@@ -204,7 +284,7 @@ fn control_number_uniqueness(
 // }
 fn control_min_length(value: String, min: usize) -> Result<Option<usize>, Box<dyn Error>> {
     let value_length = value.len();
-    if value_length < min {
+    if value_length <= min {
         Ok(Some(value_length))
     } else {
         Ok(None)
@@ -212,7 +292,7 @@ fn control_min_length(value: String, min: usize) -> Result<Option<usize>, Box<dy
 }
 fn control_max_length(value: String, max: usize) -> Result<Option<usize>, Box<dyn Error>> {
     let value_length = value.len();
-    if value_length >= max {
+    if value_length > max {
         Ok(Some(value_length))
     } else {
         Ok(None)
