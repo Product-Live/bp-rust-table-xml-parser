@@ -40,7 +40,7 @@ fn xml_parser() {
         key: "PRODUCTS".to_owned(),
         title: "Products".to_owned(),
         position: 1,
-        color: "BLUE".to_owned(),
+        color: "RED".to_owned(),
         description: Some("Products' table".to_owned()),
         title_locals: Some(vec![Local {
             lang: "fra".to_owned(),
@@ -55,34 +55,60 @@ fn xml_parser() {
                 key: "ACTIVE".to_owned(),
                 title: "Active".to_owned(),
                 position: 1,
-                description: None,
+                description: Some("Active partition".to_owned()),
                 title_locals: Some(vec![Local {
                     lang: "fra".to_owned(),
                     value: "Actifs".to_owned(),
                 }]),
-                description_locals: None,
-                metadata: None,
+                description_locals: Some(vec![Local {
+                    lang: "fra".to_owned(),
+                    value: "La partition active".to_owned(),
+                }]),
+                metadata: Some(vec![
+                    Metadata {
+                        key: "SYSTEM".to_owned(),
+                        value: "ERP".to_owned()
+                    }
+                ]),
             }],
             levels: vec![Level {
                 key: "PRODUCT".to_owned(),
                 title: "Product".to_owned(),
                 index: 1,
-                description: None,
+                description: Some("Product level".to_owned()),
                 title_locals: Some(vec![Local {
                     lang: "fra".to_owned(),
                     value: "Produit".to_owned(),
                 }]),
-                description_locals: None,
-                metadata: None,
+                description_locals: Some(vec![Local {
+                    lang: "fra".to_owned(),
+                    value: "Le niveau produit".to_owned(),
+                }]),
+                metadata: Some(vec![
+                    Metadata {
+                        key: "SYSTEM".to_owned(),
+                        value: "ERP".to_owned()
+                    }
+                ]),
             }],
             identifiers: vec![Identifier {
                 key: "EAN_13".to_owned(),
                 title: "EAN 13".to_owned(),
                 index: 1,
                 level: "PRODUCT".to_owned(),
-                description: None,
-                title_locals: None,
-                description_locals: None,
+                description: Some("EAN13 code".to_owned()),
+                title_locals: Some(vec![
+                    Local {
+                        lang: "fra".to_owned(),
+                        value: "EAN 13".to_owned()
+                    }
+                ]),
+                description_locals: Some(vec![
+                    Local {
+                        lang: "fra".to_owned(),
+                        value: "Le code EAN 13".to_owned()
+                    }
+                ]),
                 metadata: Some(vec![Metadata {
                     key: "SYSTEM".to_owned(),
                     value: "ERP".to_owned(),
@@ -91,19 +117,45 @@ fn xml_parser() {
             classifications: vec![Classification {
                 key: "TYPOLOGY".to_owned(),
                 title: "Typology".to_owned(),
-                description: None,
-                title_locals: None,
-                description_locals: None,
-                metadata: None,
+                description: Some("Product typology".to_owned()),
+                title_locals: Some(vec![
+                    Local {
+                        lang: "fra".to_owned(),
+                        value: "Typologie".to_owned()
+                    }
+                ]),
+                description_locals: Some(vec![
+                    Local {
+                        lang: "fra".to_owned(),
+                        value: "La typologie du produit".to_owned()
+                    }
+                ]),
+                metadata: Some(vec![Metadata {
+                    key: "SYSTEM".to_owned(),
+                    value: "ERP".to_owned(),
+                }]),
                 categories: vec![
                     Category {
                         key: "HOME_APPLIANCE".to_owned(),
                         parent: None,
                         title: "Home appliance".to_owned(),
-                        description: None,
-                        title_locals: None,
-                        description_locals: None,
-                        metadata: None,
+                        description: Some("Home appliance category".to_owned()),
+                        title_locals: Some(vec![
+                            Local {
+                                lang: "fra".to_owned(),
+                                value: "Eléctroménager".to_owned()
+                            }
+                        ]),
+                        description_locals: Some(vec![
+                            Local {
+                                lang: "fra".to_owned(),
+                                value: "La catégorie éléctroménager".to_owned()
+                            }
+                        ]),
+                        metadata: Some(vec![Metadata {
+                            key: "SYSTEM".to_owned(),
+                            value: "ERP".to_owned(),
+                        }]),
                     },
                     Category {
                         key: "PHONES".to_owned(),
@@ -216,6 +268,30 @@ fn xml_parser() {
                     options: None,
                 },
                 Field {
+                    key: "PRICE_DOLLAR".to_owned(),
+                    level: "PRODUCT".to_owned(),
+                    data_type: DataType::Number,
+                    title: "Price ($)".to_owned(),
+                    description: Some("Price in dollar".to_owned()),
+                    title_locals: Some(vec![Local {
+                        lang: "fra".to_owned(),
+                        value: "Prix ($)".to_owned(),
+                    }]),
+                    description_locals: Some(vec![Local {
+                        lang: "fra".to_owned(),
+                        value: "Le prix en dollar".to_owned(),
+                    }]),
+                    metadata: Some(vec![Metadata {
+                        key: "SYSTEM".to_owned(),
+                        value: "ERP".to_owned(),
+                    }]),
+                    prefix: Some("$".to_owned()),
+                    suffix: None,
+                    precision: Some(2),
+                    suffixes: None,
+                    options: None,
+                },
+                Field {
                     key: "CAMERA_RESOLUTION".to_owned(),
                     level: "PRODUCT".to_owned(),
                     data_type: DataType::Number,
@@ -233,9 +309,18 @@ fn xml_parser() {
                             title: "Pixel".to_owned(),
                             default: Some(true),
                             description: Some("A unit of count defining the number of pixels".to_owned()),
-                            title_locals: None,
-                            description_locals: None,
-                            metadata: None
+                            title_locals: Some(vec![Local {
+                                lang: "fra".to_owned(),
+                                value: "Pixel".to_owned(),
+                            }]),
+                            description_locals: Some(vec![Local {
+                                lang: "fra".to_owned(),
+                                value: "Une unité pour définir le nombre de pixels".to_owned(),
+                            }]),
+                            metadata: Some(vec![Metadata {
+                                key: "SYSTEM".to_owned(),
+                                value: "ERP".to_owned(),
+                            }])
                         },
                         Suffix {
                             key: "MEGAPIXEL".to_owned(),
@@ -441,10 +526,17 @@ fn xml_parser() {
                                 ],
                                 specifics: vec![]
                             },
-                            description: None,
-                            title_locals: None,
-                            description_locals: None,
-                            metadata: None
+                            description: Some("Invalid products".to_owned()),
+                            title_locals: Some(vec![
+                                Local { lang: "fra".to_owned(), value: "Invalide".to_owned()}
+                            ]),
+                            description_locals: Some(vec![
+                                Local { lang: "fra".to_owned(), value: "Les produits invalides".to_owned()}
+                            ]),
+                            metadata: Some(vec![Metadata {
+                                key: "SYSTEM".to_owned(),
+                                value: "ERP".to_owned(),
+                            }])
                         },
                         Status {
                             key: "RECOMMENDED".to_owned(),
@@ -467,12 +559,19 @@ fn xml_parser() {
                 Section {
                     key: "IDENTIFIERS".to_owned(),
                     title: "Identifiers".to_owned(),
-                    description: None,
+                    description: Some("Identifiers section".to_owned()),
                     title_locals: Some(vec![
                         Local { lang: "fra".to_owned(), value: "Identifiants".to_owned() }
                     ]),
-                    description_locals: None,
-                    metadata: None
+                    description_locals: Some(vec![
+                        Local { lang: "fra".to_owned(), value: "La section des identifiants".to_owned() }
+                    ]),
+                    metadata: Some(vec![
+                        Metadata {
+                            key: "SYSTEM".to_owned(),
+                            value: "ERP".to_owned()
+                        }
+                    ])
                 }
             ],
             screens: vec![
@@ -481,12 +580,19 @@ fn xml_parser() {
                     level: "PRODUCT".to_owned(),
                     title: "All properties".to_owned(),
                     position: 1,
-                    description: None,
+                    description: Some("All properties screen".to_owned()),
                     title_locals: Some(vec![
                         Local { lang: "fra".to_owned(), value: "Tous les attributs".to_owned()}
                     ]),
-                    description_locals: None,
-                    metadata: None,
+                    description_locals: Some(vec![
+                        Local { lang: "fra".to_owned(), value: "L'écran avec tous les attributs".to_owned()}
+                    ]),
+                    metadata: Some(vec![
+                        Metadata {
+                            key: "SYSTEM".to_owned(),
+                            value: "ERP".to_owned()
+                        }
+                    ]),
                     grid: ScreenGrid {
                         line_height: "SHORT".to_owned(),
                         common: vec![

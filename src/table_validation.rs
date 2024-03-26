@@ -1,6 +1,6 @@
 use std::{collections::HashSet, error::Error};
 
-use crate::table_structs::Table;
+use crate::table_structs::{Partition, Table};
 
 pub enum LogError {
     Partition {
@@ -25,74 +25,27 @@ pub enum LogError {
 }
 
 pub struct TableValidation {
-    errors: Vec<LogError>,
+    pub errors: Vec<LogError>,
 }
 
 impl TableValidation {
+    pub fn new() -> Self {
+        TableValidation {
+            errors: vec![]
+        }
+    }
     pub fn validate(&mut self, table: &Table) -> Result<(), Box<dyn Error>> {
-        // Partitions
+        self.validate_partitions(&table.schema.partitions)?;
+        Ok(())
+    }
+    pub fn validate_partitions(
+        &mut self,
+        partitions: &Vec<Partition>,
+    ) -> Result<(), Box<dyn Error>> {
         let mut partition_keys: Vec<String> = vec![];
         let mut partition_indexes: Vec<(String, usize)> = vec![];
-        for (idx, partition) in table.schema.partitions.iter().enumerate() {
-            let key = &partition.key;
-            partition_keys.push(key.to_owned());
-            partition_indexes.push((key.to_owned(), idx));
-            if key.ends_with(" ") || key.starts_with(" ") {
-                self.errors.push(LogError::Partition {
-                    code: "KEY_STARTS_OR_ENDS_WHITESPACE".to_owned(),
-                    message: format!("Partition attribute @key starts or ends with a whitespace."),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
-                    partition_key: key.to_owned(),
-                })
-            }
-            match control_min_length(partition.key.to_owned(), 0)? {
-                Some(value_length) => self.errors.push(LogError::Partition {
-                    code: "MIN_LENGTH".to_owned(),
-                    message: format!(
-                        "Partition attribute @key is not greater than {} characters (actual: {}).",
-                        0, value_length
-                    ),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
-                    partition_key: key.to_owned(),
-                }),
-                None => (),
-            }
-            match control_max_length(partition.key.to_owned(), 255)? {
-                Some(value_length) => self.errors.push(LogError::Partition {
-                    code: "MAX_LENGTH".to_owned(),
-                    message: format!(
-                        "Partition attribute @key is not lower than {} characters (actual: {}).",
-                        255, value_length
-                    ),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
-                    partition_key: key.to_owned(),
-                }),
-                None => (),
-            }
-            match control_min_length(partition.title.to_owned(), 0)? {
-                Some(value_length) => self.errors.push(LogError::Partition {
-                    code: "MIN_LENGTH".to_owned(),
-                    message: format!(
-                        "Partition element Title is not greater than {} characters (actual: {}).",
-                        0, value_length
-                    ),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
-                    partition_key: key.to_owned(),
-                }),
-                None => (),
-            }
-            match control_max_length(partition.title.to_owned(), 255)? {
-                Some(value_length) => self.errors.push(LogError::Partition {
-                    code: "MAX_LENGTH".to_owned(),
-                    message: format!(
-                        "Partition element Title is not lower than {} characters (actual: {}).",
-                        255, value_length
-                    ),
-                    xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
-                    partition_key: key.to_owned(),
-                }),
-                None => (),
-            }
+        for (idx, partition) in partitions.iter().enumerate() {
+            self.validate_partition(partition, &mut partition_keys, &mut partition_indexes, idx)?;
         }
         match control_text_uniqueness(partition_keys)? {
             Some(keys) => {
@@ -100,7 +53,10 @@ impl TableValidation {
                     self.errors.push(LogError::Partition {
                         code: "DUPLICATE_KEY".to_owned(),
                         message: "Partition' attribute @key is not unique.".to_owned(),
-                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
+                        xpath: format!(
+                            "/Table/Schema/Partitions/Partition[@key='{}']/@key",
+                            key
+                        ),
                         partition_key: key.to_owned(),
                     })
                 }
@@ -113,7 +69,10 @@ impl TableValidation {
                     self.errors.push(LogError::Partition {
                         code: "DUPLICATE_INDEX".to_owned(),
                         message: "Partition' attribute @index is not unique.".to_owned(),
-                        xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@index", key),
+                        xpath: format!(
+                            "/Table/Schema/Partitions/Partition[@key='{}']/@index",
+                            key
+                        ),
                         partition_key: key.to_owned(),
                     })
                 }
@@ -122,6 +81,70 @@ impl TableValidation {
         };
         Ok(())
     }
+    pub fn validate_partition(&mut self, partition: &Partition, partition_keys: &mut Vec<String>, partition_indexes: &mut Vec<(String, usize)>, idx: usize) -> Result<(), Box<dyn Error>> {
+        let key = &partition.key;
+        partition_keys.push(key.to_owned());
+        partition_indexes.push((key.to_owned(), idx));
+        if key.ends_with(" ") || key.starts_with(" ") {
+            self.errors.push(LogError::Partition {
+                code: "KEY_STARTS_OR_ENDS_WHITESPACE".to_owned(),
+                message: format!(
+                    "Partition attribute @key starts or ends with a whitespace."
+                ),
+                xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
+                partition_key: key.to_owned(),
+            })
+        }
+        match control_min_length(partition.key.to_owned(), 0)? {
+            Some(value_length) => self.errors.push(LogError::Partition {
+                code: "MIN_LENGTH".to_owned(),
+                message: format!(
+                "Partition attribute @key is not greater than {} characters (actual: {}).",
+                0, value_length
+            ),
+                xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
+                partition_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_max_length(partition.key.to_owned(), 255)? {
+            Some(value_length) => self.errors.push(LogError::Partition {
+                code: "MAX_LENGTH".to_owned(),
+                message: format!(
+                "Partition attribute @key is not lower than {} characters (actual: {}).",
+                255, value_length
+            ),
+                xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/@key", key),
+                partition_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_min_length(partition.title.to_owned(), 0)? {
+            Some(value_length) => self.errors.push(LogError::Partition {
+                code: "MIN_LENGTH".to_owned(),
+                message: format!(
+                "Partition element Title is not greater than {} characters (actual: {}).",
+                0, value_length
+            ),
+                xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
+                partition_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        match control_max_length(partition.title.to_owned(), 255)? {
+            Some(value_length) => self.errors.push(LogError::Partition {
+                code: "MAX_LENGTH".to_owned(),
+                message: format!(
+                    "Partition element Title is not lower than {} characters (actual: {}).",
+                    255, value_length
+                ),
+                xpath: format!("/Table/Schema/Partitions/Partition[@key='{}']/Title", key),
+                partition_key: key.to_owned(),
+            }),
+            None => (),
+        }
+        Ok(())
+    } 
 }
 
 // Utils

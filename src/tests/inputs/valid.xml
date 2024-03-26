@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Table key="PRODUCTS">
     <Title>Products</Title>
-    <Color>BLUE</Color>
+    <Color>RED</Color>
     <Position>1</Position>
     <Description>Products' table</Description>
     <Title-Local lang="fra">Produits</Title-Local>
@@ -10,28 +10,45 @@
         <Levels>
             <Level key="PRODUCT" index="1">
                 <Title>Product</Title>
+                <Description>Product level</Description>
                 <Title-Local lang="fra">Produit</Title-Local>
+                <Description-Local lang="fra">Le niveau produit</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
             </Level>
         </Levels>
         <Partitions>
             <Partition key="ACTIVE">
                 <Title>Active</Title>
                 <Position>1</Position>
+                <Description>Active partition</Description>
                 <Title-Local lang="fra">Actifs</Title-Local>
+                <Description-Local lang="fra">La partition active</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
             </Partition>
         </Partitions>
         <Identifiers>
             <Identifier key="EAN_13" index="1" level="PRODUCT">
                 <Title>EAN 13</Title>
+                <Description>EAN13 code</Description>
+                <Title-Local lang="fra">EAN 13</Title-Local>
+                <Description-Local lang="fra">Le code EAN 13</Description-Local>
                 <Metadata key="SYSTEM">ERP</Metadata>
             </Identifier>
         </Identifiers>
         <Classifications>
             <Classification key="TYPOLOGY">
                 <Title>Typology</Title>
+                <Description>Product typology</Description>
+                <Title-Local lang="fra">Typologie</Title-Local>
+                <Description-Local lang="fra">La typologie du produit</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
                 <Categories>
                     <Category key="HOME_APPLIANCE">
                         <Title>Home appliance</Title>
+                        <Description>Home appliance category</Description>
+                        <Title-Local lang="fra">Eléctroménager</Title-Local>
+                        <Description-Local lang="fra">La catégorie éléctroménager</Description-Local>
+                        <Metadata key="SYSTEM">ERP</Metadata>
                     </Category>
                     <Category key="PHONES" parent="HOME_APPLIANCE">
                         <Title>Phones</Title>
@@ -73,6 +90,15 @@
                 <Metadata key="SYSTEM">ERP</Metadata>
                 <Suffix>GB</Suffix>
             </Field>
+            <Field key="PRICE_DOLLAR" type="NUMBER" level="PRODUCT">
+                <Title>Price ($)</Title>
+                <Description>Price in dollar</Description>
+                <Title-Local lang="fra">Prix ($)</Title-Local>
+                <Description-Local lang="fra">Le prix en dollar</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
+                <Prefix>$</Prefix>
+                <Precision>2</Precision>
+            </Field>
             <Field key="CAMERA_RESOLUTION" type="NUMBER" level="PRODUCT">
                 <Title>Camera resolution</Title>
                 <Description>The resolution of an image is the number of pixels contained in the image per unit length.</Description>
@@ -80,6 +106,9 @@
                     <Suffix key="PIXEL" default="true">
                         <Title>Pixel</Title>
                         <Description>A unit of count defining the number of pixels</Description>
+                        <Title-Local lang="fra">Pixel</Title-Local>
+                        <Description-Local lang="fra">Une unité pour définir le nombre de pixels</Description-Local>
+                        <Metadata key="SYSTEM">ERP</Metadata>
                     </Suffix>
                     <Suffix key="MEGAPIXEL">
                         <Title>Megapixel</Title>
@@ -169,6 +198,10 @@
                         <Title>Invalid</Title>
                         <Color>RED</Color>
                         <Priority>1</Priority>
+                        <Description>Invalid products</Description>
+                        <Title-Local lang="fra">Invalide</Title-Local>
+                        <Description-Local lang="fra">Les produits invalides</Description-Local>
+                        <Metadata key="SYSTEM">ERP</Metadata>
                         <Rules>
                             <Common>
                                 <Identifier key="EAN_13">
@@ -214,14 +247,20 @@
         <Sections>
             <Section key="IDENTIFIERS">
                 <Title>Identifiers</Title>
+                <Description>Identifiers section</Description>
                 <Title-Local lang="fra">Identifiants</Title-Local>
+                <Description-Local lang="fra">La section des identifiants</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
             </Section>
         </Sections>
         <Screens>
             <Screen key="ALL_PROPERTIES" level="PRODUCT">
                 <Title>All properties</Title>
                 <Position>1</Position>
+                <Description>All properties screen</Description>
                 <Title-Local lang="fra">Tous les attributs</Title-Local>
+                <Description-Local lang="fra">L'écran avec tous les attributs</Description-Local>
+                <Metadata key="SYSTEM">ERP</Metadata>
                 <Grid>
                     <Line-Height>SHORT</Line-Height>
                     <Common>
