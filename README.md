@@ -21,10 +21,12 @@ This implementation is used in Table Schema Editor project.
 
 ## About the parser approach
 
-Before this project, three methods have been tested:
+Three methods have been tested:
 
 | Method                                                                                         | Advantage                                                                         | Drawback                                  |
 | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
 | use a lib that convert xml to struct, then write methods to parse                              | Fast to implement (until it get hard to read)                                     | Slow, high memory usage, hard to maintain |
 | annotation on structures (write annotion on structure to define serialization/deserialization) | Fast to implement (until it get hard to read/write especially for serialization)  | Slow, high memory usage, hard to maintain |
 | event parsing                                                                                  | Quickest method, low memory footprint, simpler to maintain on large xml structure |                                           |
+
+In this project the event parsing method has been chosen.
